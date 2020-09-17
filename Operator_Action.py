@@ -5,6 +5,12 @@ from os import walk
 import re
 import sys
 
+
+''' Update notes --- Beta V.1.1
+Added user more and configuration mode. Configuration mode allows us to reset the dictionary files'''
+
+
+
 #import matplotlib.pyplot as plt
 #import seaborn as sns
 
@@ -216,7 +222,7 @@ def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
         print("Vocab file is up to date...")
 
 def object_vocab_file_check(file_name = 'Equip_Vocab.xlsx'):
-    p
+    
     vocab_df = pd.read_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name,header=0,index_col=1)
     for i in list(vocab_df.loc[:,"Object Type"]):
         if "nan" == str(i):
@@ -270,6 +276,36 @@ def action_definition(df, file_name = "Action_definition_Final.xlsx"):
         action_class.append(class_type)
     return action_class
 
+def config_reset():
+    path = os.getcwd()     
+    path = path + "\\"+ "Operator_Action_Files"+"\\"
+    df = open_files_in_folder(path)
+    #oper_data_collective.to_excel('All_oper_action_july.xlsx')
+
+    obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = false)
+    action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
+    exit()
+
+def admin_mode_check():
+    print("User Name:")
+    u_name = input()
+    print("Password:")
+    p_word = input()
+
+    if u_name == "admin" and p_word =="admin":
+        config_reset()
+    else:
+        print("Invalid Credentials... Exiting application... Try again")
+        exit()
+
+print("Welcome to MI Analysis tool")
+print("Choose your mode of operation")
+print("1. Configuration mode...press 1")
+print("2. User mode...press 2")
+mode = input("")
+if mode == 1:
+    admin_mode_check()
+
 path = os.getcwd()     
 path = path + "\\"+ "Operator_Action_Files"+"\\"
 df = open_files_in_folder(path)
@@ -283,7 +319,9 @@ normalize_user_data(df)
 extract_msg(df)
 df.drop(columns = "Message")
 vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+object_vocab_file_check()
 vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
+object_vocab_file_check()
 object_type_builder(df,vocab_df["Object Type"])
 action_class = action_definition(df)
 df["Action Class"] = action_class
