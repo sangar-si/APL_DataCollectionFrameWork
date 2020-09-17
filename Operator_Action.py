@@ -27,12 +27,13 @@ def remove_nan(data_f):
         if str(data_f.loc[i,'UserAccount']) == 'nan':
             junk_frames.append(i)
     if len(junk_frames)>0:
-        print(len(junk_frames)," junk values found")
-        print("Removing junk frames...")
+        # print(len(junk_frames)," junk values found")
+        #print("Removing junk frames...")
         data_f.drop(junk_frames,inplace=True)
-        print('Successful.')
+        #print('Successful.')
     else:
-        print("No junk frames found.")
+       # print("No junk frames found.")
+       pass
 
 def open_files_in_folder(path):
     #Loading a list of files from a directory
@@ -49,13 +50,14 @@ def open_files_in_folder(path):
         #print('Reading File ',f[i])
         dat_f = pd.read_excel(full_path, index_col = None, header = 2,sheet_name=0, skiprows=0)
         dat_frame.append(dat_f)
+        remove_nan(dat_f)
         print(str(i+1),'/',str(len(f)),' files read successfully', end='\r')
     print("\n")
     print("All files loaded")
     print("Concatinating files...")
     df_concat = pd.concat(dat_frame, ignore_index = True, sort = False)
     print("File concatination sucessful.")
-    remove_nan(df_concat)
+    
     return df_concat
 #This helps us to open all the excel files in a folder
 
