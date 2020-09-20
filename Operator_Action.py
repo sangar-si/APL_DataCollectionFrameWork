@@ -17,15 +17,6 @@ Added user more and configuration mode. Configuration mode allows us to reset th
 
 #Function that will import all excel files in a folder
 #It will take in the path as input and return a dataframe will contain a concatination of all entries of all three files
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 def remove_nan(data_f):
     #Finding the last row of a file. Extra rows with nan entry is removed here. It also combines all the individual data frames 
@@ -170,7 +161,7 @@ def normalize_user_data(df, file_name = 'Employee_details.xlsx'):
             emp_details_list = list(emp_dict[id_val].values)
         except:
             if id_val not in uknown_id:
-                print(f"{bcolors.WARNING}Add user details for {bcolors.ENDC}",id_val,f"{bcolors.WARNING} in the /Utility_Files/Employee_details.xlsx file{bcolors.ENDC}")
+                print("Add user details for ",id_val," in the /Utility_Files/Employee_details.xlsx file")
                 uknown_id.append(id_val)
             emp_details_list = ['na','na','na','na']
             
