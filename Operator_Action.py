@@ -17,10 +17,20 @@ Added user more and configuration mode. Configuration mode allows us to reset th
 
 #Function that will import all excel files in a folder
 #It will take in the path as input and return a dataframe will contain a concatination of all entries of all three files
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def remove_nan(data_f):
     #Finding the last row of a file. Extra rows with nan entry is removed here. It also combines all the individual data frames 
     #into a single data frame
-    print('Checking for junk values...')
+    #print('Checking for junk values...')
     l = len(data_f)
     junk_frames = []
     for i in range(l):
@@ -32,15 +42,15 @@ def remove_nan(data_f):
         data_f.drop(junk_frames,inplace=True)
         #print('Successful.')
     else:
-       # print("No junk frames found.")
        pass
-
+       # print("No junk frames found.")
+       
 def open_files_in_folder(path):
     #Loading a list of files from a directory
     print("Loading files...")
 
     f = []
-    for (dirpath, dirnames, filenames) in walk(path):
+    for (_,_, filenames) in walk(path):
         f.extend(filenames)
         break
     print('Detected ',len(f),' files in the directory')
@@ -143,13 +153,41 @@ def path_extraction(df):
     df["Object Interacted With"] = end_obj
     print("Successful")
     
-def normalize_user_data(df):
+def normalize_user_data(df, file_name = 'Employee_details.xlsx'):
     user_id = []
+    user_name = []
+    user_dept = []
+    user_subdept = []
+    user_designation = []
+    uknown_id = []
+    emp_file_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name
+    emp_details = pd.read_excel(emp_file_path, index_col = 0, header = 0).transpose()
+    emp_dict = emp_details.to_dict(orient = 'series')
     print("Normalizing User Data")
     for i in list(df.loc[:,"UserAccount"].values):
-        user_id.append(i[11:])
-    df["UserID"] = user_id        
+        id_val = i[11:]
+        try:
+            emp_details_list = list(emp_dict[id_val].values)
+        except:
+            if id_val not in uknown_id:
+                print(f"{bcolors.WARNING}Add user details for {bcolors.ENDC}",id_val,f"{bcolors.WARNING} in the /Utility_Files/Employee_details.xlsx file{bcolors.ENDC}")
+                uknown_id.append(id_val)
+            emp_details_list = ['na','na','na','na']
+            
+        user_id.append(id_val)
+        user_name.append(emp_details_list[0])
+        user_designation.append(emp_details_list[1])
+        user_dept.append(emp_details_list[2])
+        user_subdept.append(emp_details_list[3])
+        
+
+    df["UserID"] = user_id  
+    df["UserName"] = user_name
+    df["UserDesignation"] = user_designation
+    df["UserDept"] = user_dept
+    df["User_Sub_Dept"] = user_subdept  
     print("Successful")
+    del uknown_id
 
 def extract_msg(df):
     message = []
@@ -284,7 +322,7 @@ def config_reset():
     df = open_files_in_folder(path)
     #oper_data_collective.to_excel('All_oper_action_july.xlsx')
 
-    obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = false)
+    obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = False)
     action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
     exit()
 
@@ -330,7 +368,7 @@ df["Action Class"] = action_class
 
 print("Building final report...")
 
-df.to_excel('Consolidated_Report.xlsx')
+df.drop(columns=['Unnamed: 0']).to_excel('Consolidated_Report.xlsx')
 
 print("Consolidated report built successfully. Thanks!")
 
