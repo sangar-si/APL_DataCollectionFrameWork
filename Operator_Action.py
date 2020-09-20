@@ -336,7 +336,9 @@ print("2. User mode...press 2")
 mode = input("")
 if mode == 1:
     admin_mode_check()
-
+vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
+object_vocab_file_check()
 path = os.getcwd()     
 path = path + "\\"+ "Operator_Action_Files"+"\\"
 df = open_files_in_folder(path)
@@ -349,10 +351,7 @@ path_extraction(df)
 normalize_user_data(df)
 extract_msg(df)
 df.drop(columns = "Message")
-vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
-object_vocab_file_check()
-vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
-object_vocab_file_check()
+#object_vocab_file_check()
 object_type_builder(df,vocab_df["Object Type"])
 action_class = action_definition(df)
 df["Action Class"] = action_class
