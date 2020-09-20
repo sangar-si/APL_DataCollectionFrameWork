@@ -50,8 +50,8 @@ def open_files_in_folder(path):
         full_path = path+'\\'+f[i]
         #print('Reading File ',f[i])
         dat_f = pd.read_excel(full_path, index_col = None, header = 2,sheet_name=0, skiprows=0)
-        dat_frame.append(dat_f)
         remove_nan(dat_f)
+        dat_frame.append(dat_f)
         print(str(i+1),'/',str(len(f)),' files read successfully', end='\r')
     print("\n")
     print("All files loaded")
