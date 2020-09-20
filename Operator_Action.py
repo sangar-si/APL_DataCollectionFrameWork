@@ -329,13 +329,51 @@ def admin_mode_check():
         print("Invalid Credentials... Exiting application... Try again")
         exit()
 
+def resume_temp():
+    temp_path = os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl"
+    print("Loading Temp file...")
+    try:
+        df = pd.read_pickle(temp_path)        
+    except:
+        print("Temp file load error. Check if temp file is available. Else, start new analysis.")
+        print("Press any key to exit...")
+        _ = input("")
+        exit()
+    print("Temp file loaded successfully.")
+
+    try:
+        print("Attempting excel file build operation...")
+        df.to_excel("Consolidated_Report.xlsx")
+        print("Consolidated report built successfully. Thanks!")
+
+    except:
+        print("Excel file build Failed... Attempting csv file build...")
+        try:
+            df.to_csv("Consolidated_Report.csv")
+            print("Consolidated report built successfully. Thanks!")
+        except:
+            print("CSV Build also failed... Try running from script")
+            exit()
+    os.remove(temp_path)
+    print("Press any key to exit...")
+    _ = input("")
+    exit()
+
 print("Welcome to MI Analysis tool")
 print("Choose your mode of operation")
 print("1. Configuration mode...press 1")
 print("2. User mode...press 2")
 mode = input("")
-if mode == 1:
+if mode == '1':
     admin_mode_check()
+print("_________________________________________________")
+print("User mode selected...Choose execution mode,")
+print("1. Start new analysis")
+print("2. Resume from old analysis")
+mode = input("")
+if mode == '2':
+    resume_temp()
+
 vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
 vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
 object_vocab_file_check()
@@ -351,14 +389,17 @@ path_extraction(df)
 normalize_user_data(df)
 extract_msg(df)
 df.drop(columns = "Message")
-#object_vocab_file_check()
+object_vocab_file_check()
 object_type_builder(df,vocab_df["Object Type"])
 action_class = action_definition(df)
 df["Action Class"] = action_class
+df.drop(columns=['Unnamed: 0'])
+print("Building temp file checkpoint...")
+temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
+df.to_pickle(temp_path)
+print("Checkpoint created... If unsuccessful, resume from here.")
 
 print("Building final report...")
-
-df.drop(columns=['Unnamed: 0']).to_excel('Consolidated_Report.xlsx')
-
-print("Consolidated report built successfully. Thanks!")
-
+df.to_csv('Consolidated_Report.csv')
+print("Consolidated report built successfully. Thanks!\nPress any key to exit")
+_ = input("")

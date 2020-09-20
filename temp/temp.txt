@@ -1,0 +1,1 @@
+Temp file is stored here. It is used for checkpoint restoration in excel file building process.
