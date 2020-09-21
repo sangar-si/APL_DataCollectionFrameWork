@@ -315,7 +315,7 @@ def config_reset():
 
     obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = False)
     action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
-    exit()
+    sys.exit("Exiting...")
 
 def admin_mode_check():
     print("User Name:")
@@ -327,7 +327,7 @@ def admin_mode_check():
         config_reset()
     else:
         print("Invalid Credentials... Exiting application... Try again")
-        exit()
+        sys.exit("Exiting...")
 
 def resume_temp():
     temp_path = os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl"
@@ -338,7 +338,7 @@ def resume_temp():
         print("Temp file load error. Check if temp file is available. Else, start new analysis.")
         print("Press any key to exit...")
         _ = input("")
-        exit()
+        sys.exit("Exiting...")
     print("Temp file loaded successfully.")
 
     try:
@@ -353,11 +353,10 @@ def resume_temp():
             print("Consolidated report built successfully. Thanks!")
         except:
             print("CSV Build also failed... Try running from script")
-            exit()
+            sys.exit("Exiting...")
     os.remove(temp_path)
     print("Press any key to exit...")
     _ = input("")
-    exit()
 
 print("Welcome to MI Analysis tool")
 print("Choose your mode of operation")
@@ -373,33 +372,33 @@ print("2. Resume from old analysis")
 mode = input("")
 if mode == '2':
     resume_temp()
+else:
+    vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+    vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
+    object_vocab_file_check()
+    path = os.getcwd()     
+    path = path + "\\"+ "Operator_Action_Files"+"\\"
+    df = open_files_in_folder(path)
+    #oper_data_collective.to_excel('All_oper_action_july.xlsx')
 
-vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
-vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
-object_vocab_file_check()
-path = os.getcwd()     
-path = path + "\\"+ "Operator_Action_Files"+"\\"
-df = open_files_in_folder(path)
-#oper_data_collective.to_excel('All_oper_action_july.xlsx')
+    obj_vocab_reader(list(df.loc[:,"ObjectName"].values))
+    #action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
 
-obj_vocab_reader(list(df.loc[:,"ObjectName"].values))
-#action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
+    path_extraction(df)
+    normalize_user_data(df)
+    extract_msg(df)
+    df.drop(columns = "Message")
+    object_vocab_file_check()
+    object_type_builder(df,vocab_df["Object Type"])
+    action_class = action_definition(df)
+    df["Action Class"] = action_class
+    df.drop(columns=['Unnamed: 0'])
+    print("Building temp file checkpoint...")
+    temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
+    df.to_pickle(temp_path)
+    print("Checkpoint created... If unsuccessful, resume from here.")
 
-path_extraction(df)
-normalize_user_data(df)
-extract_msg(df)
-df.drop(columns = "Message")
-object_vocab_file_check()
-object_type_builder(df,vocab_df["Object Type"])
-action_class = action_definition(df)
-df["Action Class"] = action_class
-df.drop(columns=['Unnamed: 0'])
-print("Building temp file checkpoint...")
-temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
-df.to_pickle(temp_path)
-print("Checkpoint created... If unsuccessful, resume from here.")
-
-print("Building final report...")
-df.to_csv('Consolidated_Report.csv')
-print("Consolidated report built successfully. Thanks!\nPress any key to exit")
-_ = input("")
+    print("Building final report...")
+    df.to_csv('Consolidated_Report.csv')
+    print("Consolidated report built successfully. Thanks!\nPress any key to exit")
+    _ = input("")
