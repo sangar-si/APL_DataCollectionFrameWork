@@ -1,2 +1,11 @@
-Permission Error:
-When running the program, do not have any of the relevant excel sheets open, especially the files inside Utility folder.
+*Permission Error:
+-When running the program, do not have any of the relevant excel sheets open, especially the files inside Utility folder.
+
+*Memory Error:
+-Added an option to resume a program from a previous checkpoint if it crashes due to memory error during excel file building step.
+
+*Running tip:
+-Run from command prompt.
+
+-Open command prompt in the application folder. Click on the address bar and type cmd and press ENTER
+-In the command prompt, type >>Operator_Action.exe

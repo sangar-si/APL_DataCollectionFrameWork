@@ -358,6 +358,13 @@ def resume_temp():
     print("Press any key to exit...")
     _ = input("")
 
+try:
+    logo_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"logo.txt"
+    with open(path) as f:
+        print(f.read())
+except:
+    pass
+
 print("Welcome to MI Analysis tool")
 print("Choose your mode of operation")
 print("1. Configuration mode...press 1")
