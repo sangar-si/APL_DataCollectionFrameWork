@@ -360,7 +360,7 @@ def resume_temp():
 
 try:
     logo_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"logo.txt"
-    with open(path) as f:
+    with open(logo_path) as f:
         print(f.read())
 except:
     pass
