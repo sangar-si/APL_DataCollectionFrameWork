@@ -4,10 +4,15 @@ import os
 from os import walk
 import re
 import sys
+import getpass
 
 
 ''' Update notes --- Beta V.1.1
-Added user more and configuration mode. Configuration mode allows us to reset the dictionary files'''
+Added user more and configuration mode. Configuration mode allows us to reset the dictionary files
+
+Pending work:
+Change the code for resume logic to be able to handle resume from the start. 
+'''
 
 
 
@@ -65,6 +70,7 @@ def open_files_in_folder(path):
 def sort_by_time(df, time_loc = 1):
     import time
     time_list = []
+    shift_list = []
     for i in list(df.iloc[:,1].values):
         split_val = i.replace("-"," ").replace(":"," ").split(" ")
         #t_tuple = ((split_val[2]),(split_val[1]),(split_val[0]),(split_val[3]),(split_val[4]),(split_val[5]),0,0,0)
@@ -72,7 +78,13 @@ def sort_by_time(df, time_loc = 1):
         t_tuple = (int(split_val[3]),int(split_val[2]),int(split_val[1]),int(split_val[4]),int(split_val[5]),int(split_val[6]),0,0,0)
         t_ticks = time.mktime(t_tuple)
         time_list.append(t_ticks)
-    df["TimeTicks"]=time_list
+    if (int(split_val[3])>7) and (int(split_val[3])<15):
+        shift_list[i].append("First Shift")
+    elif(int(split_val[3]>15) and int(split_val[3]<23)):
+        shift_list[i].append("Second Shift")
+    else:
+        shift_list[i].append("Night Shift")
+    df["Shift"]=shift_list
     #df.sort_values("TimeTicks",inplace=True,ascending=True)
     
 def path_extraction(df):
@@ -206,7 +218,6 @@ def normalize_object_name(obj_name):
 
 def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
     print("Vocab Building started...Reading file...")
-    import re
     if (refresh==False):
         obj_vocab_dict_temp={}
         obj_equ_list = {"ID":[],"Object":[],"Object Type":[]}
@@ -283,7 +294,7 @@ def action_definition_dict_build_v2(df):
     definition_set = [None for c in range(len(action_var_set))]
     action_dict={"Action_Value":action_var_set,"Def":definition_set}    
     action_df = pd.DataFrame(action_dict)
-    action_df.to_excel("Action_definition.xlsx")
+    action_df.to_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+"Action_definition_Final.xlsx")
     
 def action_definition(df, file_name = "Action_definition_Final.xlsx"):
     """
@@ -295,11 +306,12 @@ def action_definition(df, file_name = "Action_definition_Final.xlsx"):
     action_class = []
     for item in df.loc[:,"Action Variable"]:
         try:
-            class_type = action_dict["Def"][item]
+            class_type = str(action_dict["Def"][item])
         except KeyError:
             class_type = "NA"
         else:
-            class_type = "MI"
+            if str(class_type)=='nan':
+                class_type = "NA"
         
         force_ret = re.findall("Force",item)
         if len(force_ret)>0:
@@ -311,34 +323,39 @@ def config_reset():
     path = os.getcwd()     
     path = path + "\\"+ "Operator_Action_Files"+"\\"
     df = open_files_in_folder(path)
+    extract_msg(df)
     #oper_data_collective.to_excel('All_oper_action_july.xlsx')
 
-    obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = False)
+    obj_vocab_reader(list(df.loc[:,"ObjectName"].values), refresh = False) #Reset the equip vocab file
     action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
+    print("Equipment Vocab file regenerated. Action Definition regenerated.")
     sys.exit("Exiting...")
 
 def admin_mode_check():
-    print("User Name:")
-    u_name = input()
-    print("Password:")
-    p_word = input()
-
+    u_name = getpass.getpass(prompt='Username:')
+    p_word = getpass.getpass(prompt='Password:')    
     if u_name == "admin" and p_word =="admin":
         config_reset()
     else:
-        print("Invalid Credentials... Exiting application... Try again")
+        print("Invalid Credentials...")
         sys.exit("Exiting...")
 
 def resume_temp():
     temp_path = os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl"
+    temp_path_1 = os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl"
     print("Loading Temp file...")
     try:
         df = pd.read_pickle(temp_path)        
     except:
-        print("Temp file load error. Check if temp file is available. Else, start new analysis.")
-        print("Press any key to exit...")
-        _ = input("")
-        sys.exit("Exiting...")
+        try:    
+            df = pd.read_pickle(temp_path_1)
+        except:
+            print("Temp file load error. Check if temp file is available. Else, start new analysis.")
+            print("Press any key to exit...")
+            _ = input("")
+            sys.exit("Exiting...")
+        print("Data loaded successfully.")
+        return 0
     print("Temp file loaded successfully.")
 
     try:
@@ -355,6 +372,7 @@ def resume_temp():
             print("CSV Build also failed... Try running from script")
             sys.exit("Exiting...")
     os.remove(temp_path)
+    os.remove(temp_path_1)
     print("Press any key to exit...")
     _ = input("")
 
@@ -376,10 +394,11 @@ print("_________________________________________________")
 print("User mode selected...Choose execution mode,")
 print("1. Start new analysis")
 print("2. Resume from old analysis")
+ret = 1
 mode = input("")
 if mode == '2':
-    resume_temp()
-else:
+    ret = resume_temp()
+if ret == 1:
     vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
     vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
     object_vocab_file_check()
@@ -387,10 +406,14 @@ else:
     path = path + "\\"+ "Operator_Action_Files"+"\\"
     df = open_files_in_folder(path)
     #oper_data_collective.to_excel('All_oper_action_july.xlsx')
-
+    print("Building temp file checkpoint...")
+    temp_path_1 =os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl" 
+    df.to_pickle(temp_path_1)
+    print("Checkpoint created... If unsuccessful, resume from here.")
+    ret = resume_temp()
+if ret == 0:
     obj_vocab_reader(list(df.loc[:,"ObjectName"].values))
     #action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
-
     path_extraction(df)
     normalize_user_data(df)
     extract_msg(df)
@@ -404,8 +427,11 @@ else:
     temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
     df.to_pickle(temp_path)
     print("Checkpoint created... If unsuccessful, resume from here.")
-
+    print("Deleting old temp file...")
+    os.remove(temp_path_1)
+    print("Delete successful")
     print("Building final report...")
     df.to_csv('Consolidated_Report.csv')
+    os.remove(temp_path)
     print("Consolidated report built successfully. Thanks!\nPress any key to exit")
     _ = input("")
