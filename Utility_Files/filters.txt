@@ -1,0 +1,17 @@
+Filter{FileName = WPB,Save=1,
+[Block = (WPB) & Action_Class = (MI) & Change_Type= (Control%Action)]};
+
+Filter{FileName = SPB, Save=1,
+[Block = (SPB) & Action_Class = (MI) & Change_Type= (Control%Action)]};
+
+Filter{FileName = EB, Save=1,
+[Block = (EB) & Action_Class = (MI) & Change_Type= (Control%Action)]};
+
+Filter{FileName = RB, Save=1,
+[Block = (RB) & Action_Class = (MI) & Change_Type= (Control%Action)]};
+
+
+
+
+
+

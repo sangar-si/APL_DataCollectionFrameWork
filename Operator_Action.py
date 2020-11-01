@@ -5,23 +5,110 @@ from os import walk
 import re
 import sys
 import getpass
+import time
 
 
 ''' Update notes --- Beta V.1.1
 Added user more and configuration mode. Configuration mode allows us to reset the dictionary files
-
+Added config file to be able to work with
 Pending work:
 Change the code for resume logic to be able to handle resume from the start. 
 '''
-
-
-
-#import matplotlib.pyplot as plt
-#import seaborn as sns
-
-
 #Function that will import all excel files in a folder
 #It will take in the path as input and return a dataframe will contain a concatination of all entries of all three files
+def apply_filter(filter_list,df):
+    fltr_cnt = len(filter_list)
+    print("Applying ",fltr_cnt," filters...")
+    try:
+        for filter in filter_list:
+            df_copy = df.copy()
+            filter_data(df_copy,filter)
+    except:
+        print("Error applying filter")
+        sys.exit("Exiting...")
+    print("Filters applied successfully")
+    return 0
+
+def parse_filter():
+    path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"filters.txt"
+    try:
+        with open(path) as f:
+            filt = f.read()
+    except:
+        print("Error: filters.txt file not found")
+        return []
+    filter_list = []
+    filt=filt.replace('\n',"").replace(" ","").replace("Filter{","").replace("}","").replace("%"," ")
+    filt=filt.split(";")
+    if len(filt[-1])==0:
+        filt.pop()
+    for f in filt:
+        f = f.split(',')
+        f[0] = f[0].replace('FileName=','')
+        f[1] = int(f[1].replace('Save=',''))
+        f[2] = f[2].replace("(","").replace(")","").replace("[","").replace("]","").split('&')
+        f_list = []
+        for item in f[2]:
+            tup = item.split("=")
+            tup[1] = list(tup[1].split("+"))
+            tup = tuple(tup)
+            f_list.append(tup)
+        f_construct = tuple([f[0],f[1],f_list])
+        filter_list.append(f_construct)
+    return filter_list
+
+
+def save_df(df,filename):
+    print("Attempting to save file...")
+    if filename == 'None':
+        print('Error: Invalid filename: ',filename)
+        sys.exit("Exiting...")
+    i=0
+    try:
+        df.to_csv(filename+".csv")
+    except:
+
+        while(i<20):
+            try:
+                df.to_csv(filename+str(i)+".csv")
+            except:
+                i=i+1
+                continue
+            break
+    if i<20:
+        print("Saved successfully")
+    else:
+        print("Save Failed. Delete old files if any")
+
+def filter_data(df, filters):
+    ''' Filter format is like = (FileName = filename.xlsx,Save = 1 or 0,[(Col,[Val1,Val2]),(Col2,[Val1,Val2])])'''
+    print("Applying Filter...")
+    filename = filters[0]
+    save = filters[1]
+    for filter in filters[2]:
+        col_name = filter[0]
+        values_list = filter[1]
+        for i in range(len(list(df.loc[:,'ObjectName'].values))):
+            row_ = df.loc[i,col_name]
+            if row_ not in values_list:
+                df.loc[i,"FilterValue"] = 0
+    df = df[df["FilterValue"] == 1]
+    if save==1:
+        save_df(df,filename)
+    return df
+
+def filter_data_v2(df,filters):
+    #Efficient but needs to be refined
+    print("Applying Filter...")
+    filename = filters[0]
+    save = filters[1]
+    for filter in filters[2]:
+        col_name = filter[0]
+        val_name = filter[1]
+        df = df[df[col_name] == val_name]
+    if save==1:
+        save_df(df,filename)
+    return df
 
 def remove_nan(data_f):
     #Finding the last row of a file. Extra rows with nan entry is removed here. It also combines all the individual data frames 
@@ -41,10 +128,40 @@ def remove_nan(data_f):
        pass
        # print("No junk frames found.")
        
+def parse_config():
+    path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"settings.txt"
+    try:
+        with open(path) as f:
+            conf = f.read()
+    except:
+        print("Error: Settings file not found")
+        sys.exit()
+
+    conf = conf.replace(" ","").replace("\n","").replace(';'," ").replace("-{"," ").replace("}","").split()
+    conf_dict = {}
+    i=0
+    while(i<(len(conf))):
+        conf_dict[conf[i]] = conf[i+1]
+        i=i+2
+    return conf_dict
+
+def open_files_of_date(path):
+    print("Loading files...")
+    f = []
+    for(_,_, filenames) in walk(path):
+        f.extend(filenames)
+        break
+    for i in range(6):
+        print(f[i])
+
+
+def update_vocab_file():
+    pass
+
+
 def open_files_in_folder(path):
     #Loading a list of files from a directory
     print("Loading files...")
-
     f = []
     for (_,_, filenames) in walk(path):
         f.extend(filenames)
@@ -62,13 +179,11 @@ def open_files_in_folder(path):
     print("All files loaded")
     print("Concatinating files...")
     df_concat = pd.concat(dat_frame, ignore_index = True, sort = False)
-    print("File concatination sucessful.")
-    
+    print("File concatination sucessful.")  
     return df_concat
 #This helps us to open all the excel files in a folder
 
 def sort_by_time(df):
-    import time
     time_list = []
     shift_list = []
     for i in list(df.loc[:,"EventTime"].values):
@@ -150,10 +265,10 @@ def path_extraction(df):
     print("Data Extraction successful")
     print("Adding to Data Frame")
     df["Block"] = block_list
-    df["Change Type"] = change_type
-    df["Equipment Group"] = equip_group
+    df["Change_Type"] = change_type
+    df["Equipment_Group"] = equip_group
     df["Sequence"] = seq_list
-    df["Object Interacted With"] = end_obj
+    df["Object_Interacted_With"] = end_obj
     print("Successful")
     
 def normalize_user_data(df, file_name = 'Employee_details.xlsx'):
@@ -198,7 +313,7 @@ def extract_msg(df):
     for i in list(df.loc[:,"Message"].values):
         msg = i.split()
         message.append(msg[0])
-    df["Action Variable"] = message
+    df["Action_Variable"] = message
     print("Successful")
 
 def normalize_object_name(obj_name):
@@ -273,12 +388,19 @@ def object_vocab_file_check(file_name = 'Equip_Vocab.xlsx'):
     vocab_df = vocab_df.drop(columns=["Unnamed: 0","Object"]).to_dict()
     return  vocab_df["Object Type"]
 
-def object_type_builder(df, vocab_df):
+def object_type_builder(df, vocab_df, daily_mode = 0):
     object_type = []
     for object_name in list(df.loc[:,"ObjectName"].values):
         norm_obj_name = normalize_object_name(object_name)
-        object_type.append(vocab_df[norm_obj_name])
-    df["Object Type"] = object_type
+        try:
+            object_type.append(vocab_df[norm_obj_name])
+        except:
+            if daily_mode == 1:
+                object_type.append('nan')
+            else:
+                print("Error: Key Error. Vocab file is not up to date.")
+                sys.exit("Exiting...")               
+    df["Object_Type"] = object_type
     
 def action_definition_dict_build_v2(df):
     """
@@ -286,7 +408,7 @@ def action_definition_dict_build_v2(df):
     #Builds a dictionary of dictionaries. Outputs an excel file which allows us to define actions that are acceptable as MI
     """
     action_var = []
-    for i in df.loc[:,"Action Variable"]:
+    for i in df.loc[:,"Action_Variable"]:
         action_var.append(i)
     
     action_var_set = set(action_var)
@@ -296,15 +418,14 @@ def action_definition_dict_build_v2(df):
     action_df = pd.DataFrame(action_dict)
     action_df.to_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+"Action_definition_Final.xlsx")
     
-def action_definition(df, file_name = "Action_definition_Final.xlsx"):
+def action_definition(df, action_file_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Action_definition_Final.xlsx"):
     """
     #This adds action definition to the data frame
     """
-    action_file_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name
     action_def = pd.read_excel(action_file_path, index_col = 1).drop(columns=["Unnamed: 0"])
     action_dict = action_def.to_dict()
     action_class = []
-    for item in df.loc[:,"Action Variable"]:
+    for item in df.loc[:,"Action_Variable"]:
         try:
             class_type = str(action_dict["Def"][item])
         except KeyError:
@@ -318,6 +439,11 @@ def action_definition(df, file_name = "Action_definition_Final.xlsx"):
             class_type = "MI"
         action_class.append(class_type)
     return action_class
+
+def read_config():
+    logo_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"config.txt"
+    with open(logo_path) as f:
+        print(f.read())
 
 def config_reset():
     path = os.getcwd()     
@@ -355,7 +481,7 @@ def resume_temp():
             _ = input("")
             sys.exit("Exiting...")
         print("Data loaded successfully.")
-        return 0
+        return [0,df]
     print("Temp file loaded successfully.")
 
     try:
@@ -376,63 +502,100 @@ def resume_temp():
     print("Press any key to exit...")
     _ = input("")
 
-try:
-    logo_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"logo.txt"
-    with open(logo_path) as f:
-        print(f.read())
-except:
-    pass
+def print_logo():
+    try:
+        logo_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"logo.txt"
+        with open(logo_path) as f:
+            print(f.read())
+    except:
+        pass
 
-print("Welcome to MI Analysis tool")
-print("Choose your mode of operation")
-print("1. Configuration mode...press 1")
-print("2. User mode...press 2")
-mode = input("")
-if mode == '1':
-    admin_mode_check()
-print("_________________________________________________")
-print("User mode selected...Choose execution mode,")
-print("1. Start new analysis")
-print("2. Resume from old analysis")
-ret = 1
-mode = input("")
-if mode == '2':
-    ret = resume_temp()
-if ret == 1:
-    vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+def detailed_mode():
+    print_logo()
+    print("Welcome to MI Analysis tool")
+    print("Choose your mode of operation")
+    print("1. Configuration mode...press 1")
+    print("2. User mode...press 2")
+    mode = input("")
+    if mode == '1':
+        admin_mode_check()
+    print("_________________________________________________")
+    print("User mode selected...Choose execution mode,")
+    print("1. Start new analysis")
+    print("2. Resume from old analysis")
+    ret = 1
+    mode = input("")
+    if mode == '2':
+        r = resume_temp()
+        ret = r[0]
+        df = r[1]
+    if ret == 1:
+        vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+        vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
+        object_vocab_file_check()
+        path = os.getcwd()     
+        path = path + "\\"+ "Operator_Action_Files"+"\\"
+        df = open_files_in_folder(path)
+        #oper_data_collective.to_excel('All_oper_action_july.xlsx')
+        print("Building temp file checkpoint...")
+        temp_path_1 =os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl" 
+        df.to_pickle(temp_path_1)
+        print("Checkpoint created... If unsuccessful, resume from here.")
+        r = resume_temp()
+        ret = r[0]
+        df = r[1]
+    if ret == 0:
+        obj_vocab_reader(list(df.loc[:,"ObjectName"].values))
+        #action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
+        path_extraction(df)
+        normalize_user_data(df)
+        extract_msg(df)
+        sort_by_time(df)
+        df.drop(columns = "Message")
+        object_vocab_file_check()
+        object_type_builder(df,vocab_df["Object Type"])
+        action_class = action_definition(df)
+        df["Action_Class"] = action_class
+        df = df.drop(columns=['Unnamed: 0'])
+        print("Building temp file checkpoint...")
+        temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
+        df.to_pickle(temp_path)
+        print("Checkpoint created... If unsuccessful, resume from here.")
+        print("Deleting old temp file...")
+        os.remove(temp_path_1)
+        print("Delete successful")
+        print("Building final report...")
+        df.to_csv('Consolidated_Report.csv')
+        os.remove(temp_path)
+        print("Consolidated report built successfully. Thanks!\nPress any key to exit")
+        _ = input("")
+
+def sbt_data_collection():
+    vocab_path = settings_dict['Vocab_Path']
     vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
-    object_vocab_file_check()
-    path = os.getcwd()     
-    path = path + "\\"+ "Operator_Action_Files"+"\\"
+    path = settings_dict['File_Path']
     df = open_files_in_folder(path)
-    #oper_data_collective.to_excel('All_oper_action_july.xlsx')
-    print("Building temp file checkpoint...")
-    temp_path_1 =os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl" 
-    df.to_pickle(temp_path_1)
-    print("Checkpoint created... If unsuccessful, resume from here.")
-    ret = resume_temp()
-if ret == 0:
-    obj_vocab_reader(list(df.loc[:,"ObjectName"].values))
-    #action_definition_dict_build_v2(df) #Only run this if you want to update the action definition
+    keep_row = list(np.ones(len(df.loc[:,'ObjectName'].values),dtype=int))
+    df["FilterValue"] = keep_row
     path_extraction(df)
     normalize_user_data(df)
     extract_msg(df)
     sort_by_time(df)
     df.drop(columns = "Message")
-    object_vocab_file_check()
-    object_type_builder(df,vocab_df["Object Type"])
-    action_class = action_definition(df)
-    df["Action Class"] = action_class
-    df.drop(columns=['Unnamed: 0'])
-    print("Building temp file checkpoint...")
-    temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
-    df.to_pickle(temp_path)
-    print("Checkpoint created... If unsuccessful, resume from here.")
-    print("Deleting old temp file...")
-    os.remove(temp_path_1)
-    print("Delete successful")
-    print("Building final report...")
-    df.to_csv('Consolidated_Report.csv')
-    os.remove(temp_path)
-    print("Consolidated report built successfully. Thanks!\nPress any key to exit")
-    _ = input("")
+    object_type_builder(df,vocab_df["Object Type"], daily_mode = 1)
+    action_class_path = settings_dict["Action_Class_Path"]
+    action_class = action_definition(df,action_file_path=action_class_path)
+    df["Action_Class"] = action_class
+    df=df.drop(columns=['Unnamed: 0'])
+    filter_list = parse_filter()
+    apply_filter(filter_list,df)
+       
+
+#Main program starts here
+print("Reading settings...")
+settings_dict = parse_config()
+if settings_dict['Daily_Mode']!='1':
+    detailed_mode()
+else:
+    sbt_data_collection()
+    
