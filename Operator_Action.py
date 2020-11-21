@@ -29,6 +29,29 @@ def apply_filter(filter_list,df):
     print("Filters applied successfully")
     return 0
 
+def uniq_id_index(df):
+    #input the sorted data frame to add unique id and index
+    unique_id = []
+    idx = []
+    for i in range(len(list(df.loc[:,"ObjectName"].values))):
+        id = df.loc[i,"ObjectName"]+df.loc[i,"Sequence"]+df.loc[i,"UserID"]
+        unique_id.append(id)
+        idx.append(i)
+    df["UniqueID"] = unique_id
+    df["Index"] = idx
+
+
+def filter_dupes_v2(df, time):
+    uniq_id_index(df)
+    start_time = df.loc[0,"TimeTicks"].values
+    end_time = start_time + time
+    final_time = df.loc[-1,"TimeTicks"].values
+    store_index = []
+    while(start_time <= final_time):
+        df_ss = df[df["TimeTicks"]>=start_time]
+        df_ss = df_ss[df_ss["TimeTicks"]<end_time]
+        
+
 def parse_filter():
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"filters.txt"
     try:
@@ -57,20 +80,34 @@ def parse_filter():
         filter_list.append(f_construct)
     return filter_list
 
+def filter_dupes(df):
+    #this filters out the duplicate values
+    unique_id = []
+    for i in range(len(list(df.loc[:,"ObjectName"].values))):
+        unique_id = df.loc[i,"ObjectName"]+df.loc[i,"Sequence"]+df.loc[i,"UserID"]
+    filt_head = unique_id[0]
+    for i in range(1,len(unique_id)):
+        if filt_head==unique_id[i]:
+            df.drop(index = i, inplace = True)
+        else:
+            filt_head = unique_id[i]
+    
 
 def save_df(df,filename):
     print("Attempting to save file...")
+    config_dict = parse_config()
+    dest_path = config_dict["Save_Destination_Path"]
     if filename == 'None':
         print('Error: Invalid filename: ',filename)
         sys.exit("Exiting...")
     i=0
     try:
-        df.to_csv(filename+".csv")
+        df.to_csv(dest_path+"\\"+filename+".csv")
     except:
 
         while(i<20):
             try:
-                df.to_csv(filename+str(i)+".csv")
+                df.to_csv(dest_path+"\\"+filename+str(i)+".csv")
             except:
                 i=i+1
                 continue
@@ -78,7 +115,10 @@ def save_df(df,filename):
     if i<20:
         print("Saved successfully")
     else:
-        print("Save Failed. Delete old files if any")
+        try:
+            df.to_csv(filename+".csv")
+        except:
+            print("Save Failed. Delete old files if any")
 
 def filter_data(df, filters):
     ''' Filter format is like = (FileName = filename.xlsx,Save = 1 or 0,[(Col,[Val1,Val2]),(Col2,[Val1,Val2])])'''
@@ -200,7 +240,11 @@ def sort_by_time(df):
         else:
             shift_list.append("Night Shift")
     df["Shift"]=shift_list
-    #df.sort_values("TimeTicks",inplace=True,ascending=True)
+    df["TimeTicks"]=time_list
+    df.sort_values("TimeTicks",inplace=True,ascending=True)
+
+def remove_dupes(df,filter_time_frame):
+    pass
     
 def path_extraction(df):
     block_list = [] #Block name that comes after root
@@ -208,6 +252,7 @@ def path_extraction(df):
     change_type = [] #graphics change or logic related
     equip_group = [] #Equipment group
     end_obj = [] #End object
+    application = [] #Application name
     print("Extracting data from path...")
     for i in list(df.loc[:,"Path"].values):
         loc_split = i.replace("]","/").replace("[Location Structure","Graphic Action").replace("[Control Structure","Control Action").replace("SPB_Block","SPB").replace("WBP_Block","WPB").replace("EmulsionBlock","EB").replace("RB_Block","RB").split("/")
@@ -236,6 +281,11 @@ def path_extraction(df):
                 end_obj.append(loc_split[-1])
             except:
                 end_obj.append(loc_split[-1])
+
+            try:
+                application.append(loc_split[5])
+            except:
+                application.append('nan')
         else:
             try:
                 block_list.append(loc_split[2])
@@ -243,7 +293,7 @@ def path_extraction(df):
                 block_list.append('nan')
                 
             try:
-                change_type.append(loc_split[0])
+                change_type.append(loc_split[5])
             except:
                 change_type.append('nan')
                
@@ -256,6 +306,8 @@ def path_extraction(df):
                 equip_group.append(loc_split[3])
             except:
                 equip_group.append('nan')
+            
+            application.append('nan')
                 
             try:
                 seq_list.append(loc_split[-2])
@@ -266,6 +318,7 @@ def path_extraction(df):
     print("Adding to Data Frame")
     df["Block"] = block_list
     df["Change_Type"] = change_type
+    df["Application"] = application
     df["Equipment_Group"] = equip_group
     df["Sequence"] = seq_list
     df["Object_Interacted_With"] = end_obj
@@ -485,8 +538,8 @@ def resume_temp():
     print("Temp file loaded successfully.")
 
     try:
-        print("Attempting excel file build operation...")
-        df.to_excel("Consolidated_Report.xlsx")
+        print("Attempting csv file build...")
+        df.to_csv("Consolidated_Report.csv")
         print("Consolidated report built successfully. Thanks!")
 
     except:
@@ -501,6 +554,7 @@ def resume_temp():
     os.remove(temp_path_1)
     print("Press any key to exit...")
     _ = input("")
+    sys.exit("Exiting...")
 
 def print_logo():
     try:
@@ -525,20 +579,21 @@ def detailed_mode():
     print("2. Resume from old analysis")
     ret = 1
     mode = input("")
+    vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
+    vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
+    path = os.getcwd()     
+    path = path + "\\"+ "Operator_Action_Files"+"\\"
+    temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
+    temp_path_1 =os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl" 
     if mode == '2':
         r = resume_temp()
         ret = r[0]
         df = r[1]
     if ret == 1:
-        vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
-        vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
         object_vocab_file_check()
-        path = os.getcwd()     
-        path = path + "\\"+ "Operator_Action_Files"+"\\"
         df = open_files_in_folder(path)
         #oper_data_collective.to_excel('All_oper_action_july.xlsx')
         print("Building temp file checkpoint...")
-        temp_path_1 =os.getcwd()+"\\"+"temp"+"\\"+"combined_dat.pkl" 
         df.to_pickle(temp_path_1)
         print("Checkpoint created... If unsuccessful, resume from here.")
         r = resume_temp()
@@ -558,7 +613,6 @@ def detailed_mode():
         df["Action_Class"] = action_class
         df = df.drop(columns=['Unnamed: 0'])
         print("Building temp file checkpoint...")
-        temp_path =os.getcwd()+"\\"+"temp"+"\\"+"consolidated_dat.pkl" 
         df.to_pickle(temp_path)
         print("Checkpoint created... If unsuccessful, resume from here.")
         print("Deleting old temp file...")
@@ -569,6 +623,7 @@ def detailed_mode():
         os.remove(temp_path)
         print("Consolidated report built successfully. Thanks!\nPress any key to exit")
         _ = input("")
+        sys.exit("Exiting...")
 
 def sbt_data_collection():
     vocab_path = settings_dict['Vocab_Path']
@@ -596,6 +651,7 @@ print("Reading settings...")
 settings_dict = parse_config()
 if settings_dict['Daily_Mode']!='1':
     detailed_mode()
+    sys.exit("Exiting...")
 else:
     sbt_data_collection()
     

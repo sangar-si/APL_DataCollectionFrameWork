@@ -1,7 +1,8 @@
 File_Path-{d:\\Project\\GIT\\Manual_Intervention\\Operator_Action_Files\\};
-Daily_Mode-{1};
+Daily_Mode-{0};
 Vocab_Path-{d:\\Project\\GIT\\Manual_Intervention\\Utility_Files\\Equip_Vocab.xlsx};
 Action_Class_Path-{d:\\Project\\GIT\\Manual_Intervention\\Utility_Files\\Action_definition_Final.xlsx};
+Save_Destination_Path-{d:\\Project\\GIT\\};
 
 
 
