@@ -34,23 +34,80 @@ def uniq_id_index(df):
     unique_id = []
     idx = []
     for i in range(len(list(df.loc[:,"ObjectName"].values))):
-        id = df.loc[i,"ObjectName"]+df.loc[i,"Sequence"]+df.loc[i,"UserID"]
+        id = df.loc[i,"ObjectName"]+df.loc[i,"Sequence"]+df.loc[i,"UserID"]+df.loc[i,"Message"]
         unique_id.append(id)
         idx.append(i)
     df["UniqueID"] = unique_id
     df["Index"] = idx
 
+def filter_dupes_v3(df, time):
+    if time<0:
+        return df
+    uniq_id_index(df)
+    print("Filtering duplicate values...")
+    count = 0
+    keepindex = []
+    uni_id = []
+    start_time = df.loc[0,'TimeTicks']
+    start_idx = 0
+    end_idx = max(df.index)
+    while(True):
+        if(start_idx%100 == 0):
+            print(str(start_idx),'/',str(end_idx),' records processed', end='\r')
+        end_time = start_time+time
+        df2 = df[df['TimeTicks']>= start_time]
+        df2 = df2[df2['TimeTicks']<end_time]
+        uni_id = set(list(df2.loc[:,'UniqueID'].values))
+        for u in uni_id:
+            keepindex.append(min(df2[df2['UniqueID']==u].index))
+        start_idx = max(df[df['TimeTicks']==start_time].index)
+        if start_idx + 1 > end_idx:
+            break
+        start_time = df.loc[start_idx+1,'TimeTicks']
+    print("")
+    print("Records checked. Cleaning up...")
+    keepindex = set(keepindex)
+    for i in range(end_idx):
+        if i in keepindex:
+            continue
+        else:
+            df.drop(index=i,inplace=True)
+            count+=1
+    print(count," Duplicate entries removed")
+    return df
 
 def filter_dupes_v2(df, time):
+    if time<0:
+        return df
     uniq_id_index(df)
-    start_time = df.loc[0,"TimeTicks"].values
-    end_time = start_time + time
-    final_time = df.loc[-1,"TimeTicks"].values
-    store_index = []
-    while(start_time <= final_time):
-        df_ss = df[df["TimeTicks"]>=start_time]
-        df_ss = df_ss[df_ss["TimeTicks"]<end_time]
-        
+    print("Filtering duplicate values...")
+    count = 0
+    max_index = max(df.index)
+    df2 = df.copy()
+    for i in list(df.loc[:,"Index"].values):
+        current_time = df.loc[i,"TimeTicks"]
+        current_id = df.loc[i,"UniqueID"]
+        if(i%100 == 0):
+            print(str(i+1),'/',str(max_index),' records processed', end='\r')
+        j=i+1
+        if j>max_index:
+            break
+        next_time = df.loc[j,"TimeTicks"]
+        while(next_time <= current_time+time):
+            if(current_id == df.loc[j,"UniqueID"]):
+                drop_idx = df.loc[j,"Index"]
+                try:
+                    df2.drop(index=drop_idx,inplace=True)
+                    count+=1
+                except:
+                    pass
+            j=j+1
+            if j>max_index:
+                break
+    #df.drop(columns = "UniqueID", inplace = True)
+    #df.drop(columns = "Index", inplace = True)
+    print(count," Duplicate entries removed")
+    return df2
 
 def parse_filter():
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"filters.txt"
@@ -199,7 +256,7 @@ def update_vocab_file():
     pass
 
 
-def open_files_in_folder(path):
+def open_files_in_folder(path, header_no):
     #Loading a list of files from a directory
     print("Loading files...")
     f = []
@@ -211,7 +268,7 @@ def open_files_in_folder(path):
     for i in range(len(f)):
         full_path = path+'\\'+f[i]
         #print('Reading File ',f[i])
-        dat_f = pd.read_excel(full_path, index_col = None, header = 2,sheet_name=0, skiprows=0)
+        dat_f = pd.read_excel(full_path, index_col = None, header = header_no-1,sheet_name=0, skiprows=0)
         remove_nan(dat_f)
         dat_frame.append(dat_f)
         print(str(i+1),'/',str(len(f)),' files read successfully', end='\r')
@@ -501,7 +558,7 @@ def read_config():
 def config_reset():
     path = os.getcwd()     
     path = path + "\\"+ "Operator_Action_Files"+"\\"
-    df = open_files_in_folder(path)
+    df = open_files_in_folder(path,int(settings_dict['Header_Row_Number']))
     extract_msg(df)
     #oper_data_collective.to_excel('All_oper_action_july.xlsx')
 
@@ -591,7 +648,7 @@ def detailed_mode():
         df = r[1]
     if ret == 1:
         object_vocab_file_check()
-        df = open_files_in_folder(path)
+        df = open_files_in_folder(path, int(settings_dict['Header_Row_Number']))
         #oper_data_collective.to_excel('All_oper_action_july.xlsx')
         print("Building temp file checkpoint...")
         df.to_pickle(temp_path_1)
@@ -606,7 +663,8 @@ def detailed_mode():
         normalize_user_data(df)
         extract_msg(df)
         sort_by_time(df)
-        df.drop(columns = "Message")
+        df=filter_dupes_v3(df,float(settings_dict['Duplicates_Filter_Time']))
+        df.drop(columns = "Message", inplace = True)
         object_vocab_file_check()
         object_type_builder(df,vocab_df["Object Type"])
         action_class = action_definition(df)
@@ -629,14 +687,15 @@ def sbt_data_collection():
     vocab_path = settings_dict['Vocab_Path']
     vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
     path = settings_dict['File_Path']
-    df = open_files_in_folder(path)
+    df = open_files_in_folder(path, int(settings_dict['Header_Row_Number']))
     keep_row = list(np.ones(len(df.loc[:,'ObjectName'].values),dtype=int))
     df["FilterValue"] = keep_row
     path_extraction(df)
     normalize_user_data(df)
     extract_msg(df)
     sort_by_time(df)
-    df.drop(columns = "Message")
+    df = filter_dupes_v3(df,float(settings_dict['Duplicates_Filter_Time']))
+    df.drop(columns = "Message",inplace=True)
     object_type_builder(df,vocab_df["Object Type"], daily_mode = 1)
     action_class_path = settings_dict["Action_Class_Path"]
     action_class = action_definition(df,action_file_path=action_class_path)
