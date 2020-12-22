@@ -496,7 +496,6 @@ def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
             obj_vocab_dict_temp[id_val] = None
         print("Refresing vocab file...")
     entry_req = False
-    print(id_list)
     for obj_name in obj_names:
         #We try to split the string at _ first. If _ is not found, then we split at 0-9. If that is not found then we
         #retain the entire string
