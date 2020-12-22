@@ -19,13 +19,13 @@ Change the code for resume logic to be able to handle resume from the start.
 def apply_filter(filter_list,df):
     fltr_cnt = len(filter_list)
     print("Applying ",fltr_cnt," filters...")
-    try:
-        for filter in filter_list:
-            df_copy = df.copy()
-            filter_data(df_copy,filter)
-    except:
-        print("Error applying filter")
-        sys.exit("Exiting...")
+    #try:
+    for filter in filter_list:
+        df_copy = df.copy()
+        filter_data(df_copy,filter)
+    #except:
+     #   print("Error applying filter")
+      #  sys.exit("Exiting...")
     print("Filters applied successfully")
     return 0
 
@@ -34,11 +34,49 @@ def uniq_id_index(df):
     unique_id = []
     idx = []
     for i in range(len(list(df.loc[:,"ObjectName"].values))):
-        id = df.loc[i,"ObjectName"]+df.loc[i,"Sequence"]+df.loc[i,"UserID"]+df.loc[i,"Message"]
+        id = str(df.loc[i,"ObjectName"])+str(df.loc[i,"Sequence"])+str(df.loc[i,"UserID"])+str(df.loc[i,"Message"])
         unique_id.append(id)
         idx.append(i)
     df["UniqueID"] = unique_id
     df["Index"] = idx
+    df.sort_values("TimeTicks",inplace=True,ascending=True)
+
+
+def filter_dupes_v4(df, time):
+    if time<0:
+        return df
+    uniq_id_index(df)
+    print("Filtering duplicate values...")
+    keepindex = []
+    throwindex = []
+    temp_dict = {}
+    count = 0
+    tot = len(df.loc[:,'UniqueID'])
+    for k,t,i in zip(df.loc[:,'UniqueID'],df.loc[:,'TimeTicks'],df.loc[:,'Index']):
+        x = (t,i)
+        try:
+            temp_dict[k].append(x)
+        except:
+            temp_dict[k] = []
+            temp_dict[k].append(x)
+    
+
+    for k in list(temp_dict.keys()):
+        ticks_ptr = temp_dict[k][0][0]
+        count+=1
+        keepindex.append(temp_dict[k][0][1])
+        print(str(count),'/',str(tot),' records processed', end='\r')
+        for i in range(1,len(temp_dict[k])):
+            count+=1
+            if (temp_dict[k][i][0] - ticks_ptr)>time:
+                keepindex.append(temp_dict[k][i][1])
+                ticks_ptr = temp_dict[k][i][0]
+            else:
+                throwindex.append(temp_dict[k][i][1])
+    print(str(count),'/',str(tot),' records processed')
+    print("Records checked. Cleaning up...")
+    df.drop(index=throwindex,inplace=True)
+    print(len(throwindex)," Duplicate entries removed")
 
 def filter_dupes_v3(df, time):
     if time<0:
@@ -185,7 +223,7 @@ def filter_data(df, filters):
     for filter in filters[2]:
         col_name = filter[0]
         values_list = filter[1]
-        for i in range(len(list(df.loc[:,'ObjectName'].values))):
+        for i in list(df.loc[:,'Index'].values):
             row_ = df.loc[i,col_name]
             if row_ not in values_list:
                 df.loc[i,"FilterValue"] = 0
@@ -298,7 +336,6 @@ def sort_by_time(df):
             shift_list.append("Night Shift")
     df["Shift"]=shift_list
     df["TimeTicks"]=time_list
-    df.sort_values("TimeTicks",inplace=True,ascending=True)
 
 def remove_dupes(df,filter_time_frame):
     pass
@@ -427,7 +464,7 @@ def extract_msg(df):
     print("Successful")
 
 def normalize_object_name(obj_name):
-    import re
+    obj_name = str(obj_name)
     index = re.search("[_]|[-]",obj_name)
     if index is None:
         index = re.search("[0-9]",obj_name)
@@ -438,8 +475,10 @@ def normalize_object_name(obj_name):
             split_index = index.span(0)[0]
     else:
         split_index = index.span(0)[0]
-    
-    return obj_name[0:split_index].lower()
+    if split_index>0:
+        return obj_name[0:split_index].lower(), split_index
+    else:
+        return 'naa', split_index
 
 def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
     print("Vocab Building started...Reading file...")
@@ -457,9 +496,11 @@ def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
             obj_vocab_dict_temp[id_val] = None
         print("Refresing vocab file...")
     entry_req = False
+    print(id_list)
     for obj_name in obj_names:
         #We try to split the string at _ first. If _ is not found, then we split at 0-9. If that is not found then we
         #retain the entire string
+        '''
         index = re.search("[_]|[-]",obj_name)
         if index is None:
             index = re.search("[0-9]",obj_name)
@@ -469,22 +510,37 @@ def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
             else:
                 split_index = index.span(0)[0]
         else:
-            split_index = index.span(0)[0]
-            
-        if obj_name[0:split_index].lower() in obj_vocab_dict_temp:
+            split_index = index.span(0)[0]'''
+        norm_name, _ = normalize_object_name(obj_name)
+        '''
+        if split_index >0:    
+            if obj_name[0:split_index].lower() in obj_vocab_dict_temp:
+                pass
+            else:
+                obj_vocab_dict_temp[obj_name[0:split_index].lower()]=None
+                obj_equ_list["ID"].append(obj_name[0:split_index].lower())
+                obj_equ_list["Object"].append(obj_name)
+                obj_equ_list["Object Type"].append(None)
+                entry_req = True
+        '''
+        if norm_name in obj_vocab_dict_temp:
             pass
         else:
-            obj_vocab_dict_temp[obj_name[0:split_index].lower()]=None
-            obj_equ_list["ID"].append(obj_name[0:split_index].lower())
+            obj_vocab_dict_temp[norm_name]=None
+            obj_equ_list["ID"].append(norm_name)
             obj_equ_list["Object"].append(obj_name)
             obj_equ_list["Object Type"].append(None)
+            print("New object entry found : ", norm_name)
             entry_req = True
-            
+
+
     if entry_req:
         print("Vocab file needs to be updated...Please make changes in Equip_Vocab.xlsx")
         equip_vocab_df = pd.DataFrame(obj_equ_list)
         equip_vocab_df.to_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name)
         print("Vocab Building completed...File Saved")
+
+        
     else:
         print("Vocab file is up to date...")
 
@@ -501,7 +557,7 @@ def object_vocab_file_check(file_name = 'Equip_Vocab.xlsx'):
 def object_type_builder(df, vocab_df, daily_mode = 0):
     object_type = []
     for object_name in list(df.loc[:,"ObjectName"].values):
-        norm_obj_name = normalize_object_name(object_name)
+        norm_obj_name,_ = normalize_object_name(object_name)
         try:
             object_type.append(vocab_df[norm_obj_name])
         except:
@@ -663,7 +719,7 @@ def detailed_mode():
         normalize_user_data(df)
         extract_msg(df)
         sort_by_time(df)
-        df=filter_dupes_v3(df,float(settings_dict['Duplicates_Filter_Time']))
+        filter_dupes_v4(df,float(settings_dict['Duplicates_Filter_Time']))
         df.drop(columns = "Message", inplace = True)
         object_vocab_file_check()
         object_type_builder(df,vocab_df["Object Type"])
@@ -694,7 +750,7 @@ def sbt_data_collection():
     normalize_user_data(df)
     extract_msg(df)
     sort_by_time(df)
-    df = filter_dupes_v3(df,float(settings_dict['Duplicates_Filter_Time']))
+    filter_dupes_v4(df,float(settings_dict['Duplicates_Filter_Time']))
     df.drop(columns = "Message",inplace=True)
     object_type_builder(df,vocab_df["Object Type"], daily_mode = 1)
     action_class_path = settings_dict["Action_Class_Path"]
