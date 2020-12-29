@@ -6,6 +6,10 @@ import re
 import sys
 import getpass
 import time
+import matplotlib
+from pylab import title, xlabel, ylabel, xticks, bar, legend, axis, savefig, figure
+from fpdf import FPDF
+import seaborn as sns
 
 
 ''' Update notes --- Beta V.1.1
@@ -28,6 +32,209 @@ def apply_filter(filter_list,df):
       #  sys.exit("Exiting...")
     print("Filters applied successfully")
     return 0
+
+def pivott(df, FP, FV, PE):
+    #Function to filter and pivot on a variable. This is used in report generation
+    data=df.copy()
+    for i in range(0,len(FP)):
+        filt = FP[i]
+        Var = FV[i]
+        for j in Var:
+            data = data[data[filt] == j]
+    Result = dict()
+    for i in data[PE]:
+        Result[i] = Result.get(i, 0) + 1
+    sorted_keys = sorted(Result, key=Result.get, reverse=True)
+    sorted_Result=dict()
+    for w in sorted_keys:
+        sorted_Result[w] = Result[w]
+    return sorted_Result
+
+def pivott_v2(df, FP, FV, PE):
+    data=df.copy()
+    for i in range(0,len(FP)):
+        filt = FP[i]
+        Var = FV[i]
+        for j in Var:
+            data = data[data[filt] == j]
+    Result = dict()
+    for i in data[PE]:
+        Result[i] = Result.get(i, 0) + 1
+    Result_dict = dict()
+    Result_dict[PE] = list(Result.keys())
+    Result_dict['Count'] = list(Result.values())
+    ret_frame = pd.DataFrame(data=Result_dict).sort_values('Count',ascending=False)
+    return ret_frame
+def generateReport_v3(df):
+    path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
+    temp_path = os.getcwd()+"\\"+"temp"+"\\"
+    with open(path) as f:
+        filt = f.read()
+    filt=filt.replace('\n',"").replace(" ","").replace("]}","").replace("%"," ")
+    filt=filt.replace(']','').split(";")
+    if len(filt[-1])==0:
+        filt.pop()
+        
+    Main_result={}
+    iter = 0
+    for line in filt:
+        filt_p=[]
+        filt_v=[]
+        line = line.split(',')
+        if line[0].split('{')[0]=='Filter':
+            lin=line[0].replace('Filter{[','')
+            lin=lin.split('&')
+            
+            for k in lin:
+                f_V=[]
+                m=k.split('=')
+                f_V.append(m[1])
+                filt_p.append(m[0])
+                filt_v.append(f_V)
+            PE=line[1].split('=')[1]
+            Heading=line[2].split('=')[1].replace('}','')
+            Main_result[Heading]=pivott_v2(df, filt_p, filt_v, PE)
+            
+        elif line[0].split('{')[0]=='Generate':
+            report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')+'.pdf'
+            print('Generating ',report_name,'...')
+            pdf = FPDF()
+            for Heading,data in Main_result.items():
+                pdf.add_page()
+                pdf.set_xy(0, 0)
+                pdf.set_font('arial', 'B', 14)
+                pdf.cell(90, 5, " ", 0, 1, 'C')
+                pdf.cell(60)
+                pdf.cell(75, 10, Heading, 0, 1, 'C')
+                pdf.cell(90, 10, " ", 0, 1, 'C')
+                #pdf.cell(-40)
+                pdf.set_font('arial', 'B', 12)
+                pdf.cell(40)
+                pdf.cell(15, 10, 'S.No', 1, 0, 'C')
+                pdf.cell(50, 10, data.columns[0], 1, 0, 'C')
+                pdf.cell(30, 10, 'Counts', 1, 1, 'C')
+                #pdf.cell(-90)
+                pdf.set_font('arial', '', 8)
+                keyss= list(data.iloc[:,0])
+                values = list(data.iloc[:,1])
+                for i in range(0, len(keyss)):
+                    if i==10:
+                        break
+                    pdf.cell(40)
+                    pdf.cell(15, 5, '%s' % (str(i)), 1, 0, 'C')
+                    pdf.cell(50, 5, '%s' % (str(keyss[i])), 1, 0, 'R')
+                    pdf.cell(30, 5, '%s' % (str(values[i])), 1, 1, 'L')
+                    #pdf.cell(-90)
+                sns.set(rc={'figure.figsize':(11,11)})
+                figure(figsize=(11,11))
+                sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data.head(6), palette="Blues_d")
+                for p in sns_plot.patches:
+                    sns_plot.annotate(format(p.get_height(), '.0f'), 
+                                (p.get_x() + p.get_width() / 2., p.get_height()), 
+                                ha = 'center', va = 'center', 
+                                xytext = (0, 9), 
+                                textcoords = 'offset points')    
+                #fig = sns_plot.get_figure()
+                image_name = 'chart_'+data.columns[0]+report_name+str(iter)+'.png'
+                iter+=1
+                savefig(temp_path+image_name)
+                pdf.cell(90, 1, " ", 0, 2, 'C')
+                pdf.image(temp_path+image_name, x = 20, y = None, w = 150, h = 120, type = '', link = '')
+                os.remove(temp_path+image_name)
+            try:    
+                pdf.output(report_name, 'F')
+                Main_result = {}
+            except:
+                print('Error while saving PDF file... Failed to generate PDF report')
+                return -1
+        else:
+            print('Invalid Syntax in report_filters.txt... PDF report not generated')
+            return -1
+
+def generateReport_v2(df):
+    path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
+    temp_path = os.getcwd()+"\\"+"temp"+"\\"
+    with open(path) as f:
+        filt = f.read()
+    filt=filt.replace('\n',"").replace(" ","").replace("]}","").replace("%"," ")
+    filt=filt.replace(']','').split(";")
+    if len(filt[-1])==0:
+        filt.pop()
+        
+    Main_result={}
+    iter = 0
+    for line in filt:
+        filt_p=[]
+        filt_v=[]
+        line = line.split(',')
+        if line[0].split('{')[0]=='Filter':
+            lin=line[0].replace('Filter{[','')
+            lin=lin.split('&')
+            
+            for k in lin:
+                f_V=[]
+                m=k.split('=')
+                f_V.append(m[1])
+                filt_p.append(m[0])
+                filt_v.append(f_V)
+            PE=line[1].split('=')[1]
+            Heading=line[2].split('=')[1].replace('}','')
+            Main_result[Heading]=pivott_v2(df, filt_p, filt_v, PE)
+            
+        elif line[0].split('{')[0]=='Generate':
+            report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')+'.pdf'
+            print('Generating ',report_name,'...')
+            pdf = FPDF()
+            for Heading,data in Main_result.items():
+                pdf.add_page()
+                pdf.set_xy(0, 0)
+                pdf.set_font('arial', 'B', 14)
+                pdf.cell(90, 10, " ", 0, 1, 'C')
+                pdf.cell(60)
+                pdf.cell(75, 10, Heading, 0, 1, 'C')
+                pdf.cell(90, 10, " ", 0, 1, 'C')
+                #pdf.cell(-40)
+                pdf.set_font('arial', 'B', 12)
+                pdf.cell(40)
+                pdf.cell(15, 10, 'S.No', 1, 0, 'C')
+                pdf.cell(50, 10, data.columns[0], 1, 0, 'C')
+                pdf.cell(30, 10, 'Counts', 1, 1, 'C')
+                #pdf.cell(-90)
+                pdf.set_font('arial', '', 8)
+                keyss= list(data.iloc[:,0])
+                values = list(data.iloc[:,1])
+                for i in range(0, len(keyss)):
+                    if i==10:
+                        break
+                    pdf.cell(40)
+                    pdf.cell(15, 5, '%s' % (str(i)), 1, 0, 'C')
+                    pdf.cell(50, 5, '%s' % (str(keyss[i])), 1, 0, 'R')
+                    pdf.cell(30, 5, '%s' % (str(values[i])), 1, 1, 'L')
+                    #pdf.cell(-90)
+                sns.set(rc={'figure.figsize':(11,11)})
+                figure(figsize=(11,11))
+                sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data.head(6), palette="Blues_d")
+                for p in sns_plot.patches:
+                    sns_plot.annotate(format(p.get_height(), '.0f'), 
+                                (p.get_x() + p.get_width() / 2., p.get_height()), 
+                                ha = 'center', va = 'center', 
+                                xytext = (0, 9), 
+                                textcoords = 'offset points')    
+                #fig = sns_plot.get_figure()
+                image_name = 'chart_'+data.columns[0]+str(iter)+'.png'
+                iter+=1
+                savefig(temp_path+image_name)
+                pdf.cell(90, 10, " ", 0, 2, 'C')
+                pdf.image(temp_path+image_name, x = 20, y = None, w = 150, h = 120, type = '', link = '')
+                os.remove(temp_path+image_name)
+            try:    
+                pdf.output(report_name, 'F')
+            except:
+                print('Error while saving PDF file... Failed to generate PDF report')
+                return -1
+        else:
+            print('Invalid Syntax in report_filters.txt... PDF report not generated')
+            return -1
 
 def uniq_id_index(df):
     #input the sorted data frame to add unique id and index
@@ -339,7 +546,76 @@ def sort_by_time(df):
 
 def remove_dupes(df,filter_time_frame):
     pass
-    
+
+def path_extraction_old(df):
+    block_list = [] #Block name that comes after root
+    seq_list = [] #individual sequence
+    change_type = [] #graphics change or logic related
+    equip_group = [] #Equipment group
+    end_obj = [] #End object
+    print("Extracting data from path...")
+    for i in list(df.loc[:,"Path"].values):
+        loc_split = i.replace("]","/").replace("[Location Structure","Graphic Action").replace("[Control Structure","Control Action").replace("SPB_Block","SPB").replace("WBP_Block","WPB").replace("EmulsionBlock","EB").replace("RB_Block","RB").split("/")
+        if loc_split[0]=="Control Action":
+            try:
+                seq_list.append(loc_split[8])
+            except:
+                seq_list.append('nan')
+            
+            try:
+                block_list.append(loc_split[3])
+            except:
+                block_list.append('nan')
+                
+            try:
+                change_type.append(loc_split[0])
+            except:
+                change_type.append(loc_split[0])
+                
+            try:    
+                equip_group.append(loc_split[7])
+            except:
+                equip_group.append(loc_split[-2])
+                
+            try:   
+                end_obj.append(loc_split[-1])
+            except:
+                end_obj.append(loc_split[-1])
+        else:
+            try:
+                block_list.append(loc_split[2])
+            except:
+                block_list.append('nan')
+                
+            try:
+                change_type.append(loc_split[0])
+            except:
+                change_type.append('nan')
+               
+            try:
+                end_obj.append(loc_split[-1])
+            except:
+                end_obj.append('nan')
+                
+            try:
+                equip_group.append(loc_split[3])
+            except:
+                equip_group.append('nan')
+                
+            try:
+                seq_list.append(loc_split[-2])
+            except:
+                seq_list.append('nan')  
+                
+    print("Data Extraction successful")
+    print("Adding to Data Frame")
+    df["Block"] = block_list
+    df["Change_Type"] = change_type
+    df["Equipment_Group"] = equip_group
+    df["Sequence"] = seq_list
+    df["Object_Interacted_With"] = end_obj
+    print("Successful")
+
 def path_extraction(df):
     block_list = [] #Block name that comes after root
     seq_list = [] #individual sequence
@@ -623,8 +899,8 @@ def config_reset():
     sys.exit("Exiting...")
 
 def admin_mode_check():
-    u_name = getpass.getpass(prompt='Username:')
-    p_word = getpass.getpass(prompt='Password:')    
+    u_name = stdiomask.getpass(prompt='Username:')
+    p_word = stdiomask.getpass(prompt='Password:')    
     if u_name == "admin" and p_word =="admin":
         config_reset()
     else:
@@ -734,7 +1010,10 @@ def detailed_mode():
         print("Building final report...")
         df.to_csv('Consolidated_Report.csv')
         os.remove(temp_path)
-        print("Consolidated report built successfully. Thanks!\nPress any key to exit")
+        print("Consolidated report built successfully.")
+        if settings_dict['Generate_pdf']=='1':
+            generateReport_v3(df)
+        print("Thanks!\nPress any key to exit")
         _ = input("")
         sys.exit("Exiting...")
 

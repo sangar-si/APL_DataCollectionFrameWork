@@ -1,0 +1,9 @@
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action], Pivot_At = Equipment_Group, Heading = WPB%EQUIPMENT%GROUP};
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = TSD], Pivot_At = Object_Type, Heading = WPB%TSD};
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = MIXER], Pivot_At = Object_Type, Heading = WPB%Mixer};
+Generate{Filename = WPB_Report};
+
+
+
+
+

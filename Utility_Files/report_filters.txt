@@ -1,0 +1,31 @@
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action], Pivot_At = Equipment_Group, Heading = WPB%EQUIPMENT%GROUP};
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = TSD], Pivot_At = Object_Type, Heading = WPB%TSD};
+Filter{[Block = WPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = MIXER], Pivot_At = Object_Type, Heading = WPB%Mixer};
+Generate{Filename = WPB_Report};
+Filter{[Block = SPB & Action_Class = MI & Change_Type= Control%Action], Pivot_At = Equipment_Group, Heading = SPB%EQUIPMENT%GROUP};
+Filter{[Block = SPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = TSD], Pivot_At = Object_Type, Heading = SPB%TSD};
+Filter{[Block = SPB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = VES], Pivot_At = Object_Type, Heading = SPB%Mixer};
+Generate{Filename = SPB_Report};
+Filter{[Block = EB & Action_Class = MI & Change_Type= Control%Action], Pivot_At = Equipment_Group, Heading = EB%EQUIPMENT%GROUP};
+Filter{[Block = EB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = LDVTraDir], Pivot_At = Object_Type, Heading = EB%TSD};
+Filter{[Block = EB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = PETTraDir], Pivot_At = Object_Type, Heading = EB%Mixer};
+Generate{Filename = EB_Report};
+Filter{[Block = RB & Action_Class = MI & Change_Type= Control%Action], Pivot_At = Equipment_Group, Heading = RB%EQUIPMENT%GROUP};
+Filter{[Block = RB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = ReaTraDir], Pivot_At = Object_Type, Heading = RB%TSD};
+Filter{[Block = RB & Action_Class = MI & Change_Type= Control%Action & Equipment_Group = ASTTraDir], Pivot_At = Object_Type, Heading = RB%Mixer};
+Generate{Filename = RB_Report};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
