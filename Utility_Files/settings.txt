@@ -6,6 +6,8 @@ Save_Destination_Path-{d:\\Project\\GIT\\};
 Header_Row_Number-{3};
 Duplicates_Filter_Time-{10};
 Generate_pdf-{1};
+Include_top-{6};
+plot_color_palette-{random};
 
 
 

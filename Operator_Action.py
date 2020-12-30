@@ -10,6 +10,7 @@ import matplotlib
 from pylab import title, xlabel, ylabel, xticks, bar, legend, axis, savefig, figure
 from fpdf import FPDF
 import seaborn as sns
+import random
 
 
 ''' Update notes --- Beta V.1.1
@@ -65,6 +66,7 @@ def pivott_v2(df, FP, FV, PE):
     Result_dict['Count'] = list(Result.values())
     ret_frame = pd.DataFrame(data=Result_dict).sort_values('Count',ascending=False)
     return ret_frame
+
 def generateReport_v3(df):
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
     temp_path = os.getcwd()+"\\"+"temp"+"\\"
@@ -100,6 +102,9 @@ def generateReport_v3(df):
             print('Generating ',report_name,'...')
             pdf = FPDF()
             for Heading,data in Main_result.items():
+                if len(data.iloc[:,1].values)<1:
+                    print("No result for filter entry '",Heading,"'")
+                    continue
                 pdf.add_page()
                 pdf.set_xy(0, 0)
                 pdf.set_font('arial', 'B', 14)
@@ -121,13 +126,17 @@ def generateReport_v3(df):
                     if i==10:
                         break
                     pdf.cell(40)
-                    pdf.cell(15, 5, '%s' % (str(i)), 1, 0, 'C')
+                    pdf.cell(15, 5, '%s' % (str(i+1)), 1, 0, 'C')
                     pdf.cell(50, 5, '%s' % (str(keyss[i])), 1, 0, 'R')
                     pdf.cell(30, 5, '%s' % (str(values[i])), 1, 1, 'L')
                     #pdf.cell(-90)
                 sns.set(rc={'figure.figsize':(11,11)})
                 figure(figsize=(11,11))
-                sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data.head(6), palette="Blues_d")
+                pal = settings_dict["plot_color_palette"]
+                if pal == 'random':
+                    palettes = ["Blues_d","rocket","deep","vlag","flare","pastel", "mako","crest","magma","viridis","rocket_r","icefire","Spectral","coolwarm"]
+                    pal = palettes[random.randrange(0,len(palettes),1)]
+                sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data.head(int(settings_dict['Include_top'])), palette=pal)
                 for p in sns_plot.patches:
                     sns_plot.annotate(format(p.get_height(), '.0f'), 
                                 (p.get_x() + p.get_width() / 2., p.get_height()), 
@@ -547,75 +556,6 @@ def sort_by_time(df):
 def remove_dupes(df,filter_time_frame):
     pass
 
-def path_extraction_old(df):
-    block_list = [] #Block name that comes after root
-    seq_list = [] #individual sequence
-    change_type = [] #graphics change or logic related
-    equip_group = [] #Equipment group
-    end_obj = [] #End object
-    print("Extracting data from path...")
-    for i in list(df.loc[:,"Path"].values):
-        loc_split = i.replace("]","/").replace("[Location Structure","Graphic Action").replace("[Control Structure","Control Action").replace("SPB_Block","SPB").replace("WBP_Block","WPB").replace("EmulsionBlock","EB").replace("RB_Block","RB").split("/")
-        if loc_split[0]=="Control Action":
-            try:
-                seq_list.append(loc_split[8])
-            except:
-                seq_list.append('nan')
-            
-            try:
-                block_list.append(loc_split[3])
-            except:
-                block_list.append('nan')
-                
-            try:
-                change_type.append(loc_split[0])
-            except:
-                change_type.append(loc_split[0])
-                
-            try:    
-                equip_group.append(loc_split[7])
-            except:
-                equip_group.append(loc_split[-2])
-                
-            try:   
-                end_obj.append(loc_split[-1])
-            except:
-                end_obj.append(loc_split[-1])
-        else:
-            try:
-                block_list.append(loc_split[2])
-            except:
-                block_list.append('nan')
-                
-            try:
-                change_type.append(loc_split[0])
-            except:
-                change_type.append('nan')
-               
-            try:
-                end_obj.append(loc_split[-1])
-            except:
-                end_obj.append('nan')
-                
-            try:
-                equip_group.append(loc_split[3])
-            except:
-                equip_group.append('nan')
-                
-            try:
-                seq_list.append(loc_split[-2])
-            except:
-                seq_list.append('nan')  
-                
-    print("Data Extraction successful")
-    print("Adding to Data Frame")
-    df["Block"] = block_list
-    df["Change_Type"] = change_type
-    df["Equipment_Group"] = equip_group
-    df["Sequence"] = seq_list
-    df["Object_Interacted_With"] = end_obj
-    print("Successful")
-
 def path_extraction(df):
     block_list = [] #Block name that comes after root
     seq_list = [] #individual sequence
@@ -663,7 +603,7 @@ def path_extraction(df):
                 block_list.append('nan')
                 
             try:
-                change_type.append(loc_split[5])
+                change_type.append(loc_split[0])
             except:
                 change_type.append('nan')
                
@@ -813,9 +753,10 @@ def obj_vocab_reader(obj_names, file_name = 'Equip_Vocab.xlsx', refresh = True):
         print("Vocab file needs to be updated...Please make changes in Equip_Vocab.xlsx")
         equip_vocab_df = pd.DataFrame(obj_equ_list)
         equip_vocab_df.to_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name)
-        print("Vocab Building completed...File Saved")
-
-        
+        print("Vocab Building completed...File Saved. Update the vocab file and re-run the program")
+        ip = input("Press any key to exit...")
+        sys.exit("Exiting")
+              
     else:
         print("Vocab file is up to date...")
 
@@ -824,7 +765,9 @@ def object_vocab_file_check(file_name = 'Equip_Vocab.xlsx'):
     vocab_df = pd.read_excel(os.getcwd()+"\\"+"Utility_Files"+"\\"+file_name,header=0,index_col=1)
     for i in list(vocab_df.loc[:,"Object Type"]):
         if "nan" == str(i):
-            raise Exception("Vocab file has incomplete cells. Complete the vocab file before proceeding forward")
+            print("Vocab file has incomplete cells. Complete the vocab file before proceeding forward")
+            ip = input("Press any key to exit...")
+            sys.exit("Exiting...")
     print("Vocab File Checked...Found OK!")
     vocab_df = vocab_df.drop(columns=["Unnamed: 0","Object"]).to_dict()
     return  vocab_df["Object Type"]
@@ -899,8 +842,8 @@ def config_reset():
     sys.exit("Exiting...")
 
 def admin_mode_check():
-    u_name = stdiomask.getpass(prompt='Username:')
-    p_word = stdiomask.getpass(prompt='Password:')    
+    u_name = getpass.getpass(prompt='Username:')
+    p_word = getpass.getpass(prompt='Password:')    
     if u_name == "admin" and p_word =="admin":
         config_reset()
     else:
@@ -965,8 +908,20 @@ def detailed_mode():
     print("User mode selected...Choose execution mode,")
     print("1. Start new analysis")
     print("2. Resume from old analysis")
+    print("3. Generate PDF report")
     ret = 1
     mode = input("")
+    if mode == '3':
+        path = str(os.getcwd())+"\\"+"Consolidated_Report.csv"
+        try:
+            df = pd.read_csv(path)
+        except:
+            print("Error reading file. Ensure you have saved the Consolidated_Report.csv in the current folder and try again")
+            sys.exit("Exiting...")
+        ret = generateReport_v3(df)
+        print("Report generated successfully.")
+        sys.exit("Exiting...")
+
     vocab_path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"Equip_Vocab.xlsx"
     vocab_df = pd.read_excel(vocab_path,header=0,index_col=1).drop(columns=["Unnamed: 0","Object"]).to_dict()
     path = os.getcwd()     
