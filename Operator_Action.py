@@ -537,13 +537,18 @@ def open_files_in_folder(path, header_no):
 def sort_by_time(df):
     time_list = []
     shift_list = []
+    date = []
+    time_value = []
     for i in list(df.loc[:,"EventTime"].values):
         split_val = i.replace("-"," ").replace(":"," ").split(" ")
+        date_time_split = i.split(" ")
         #t_tuple = ((split_val[2]),(split_val[1]),(split_val[0]),(split_val[3]),(split_val[4]),(split_val[5]),0,0,0)
         #print(t_tuple)
         t_tuple = (int(split_val[3]),int(split_val[2]),int(split_val[1]),int(split_val[4]),int(split_val[5]),int(split_val[6]),0,0,0)
         t_ticks = time.mktime(t_tuple)
         time_list.append(t_ticks)
+        date.append(date_time_split[1])
+        time_value.append(date_time_split[2])
         if (int(split_val[4])>=7) and (int(split_val[4])<15):
             shift_list.append("First Shift")
         elif(int(split_val[4])>=15) and (int(split_val[4])<23):
@@ -552,6 +557,8 @@ def sort_by_time(df):
             shift_list.append("Night Shift")
     df["Shift"]=shift_list
     df["TimeTicks"]=time_list
+    df["Date"] = date
+    df["Time"] = time_value
 
 def remove_dupes(df,filter_time_frame):
     pass
