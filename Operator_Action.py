@@ -98,7 +98,7 @@ def generateReport_v3(df):
             Main_result[Heading]=pivott_v2(df, filt_p, filt_v, PE)
             
         elif line[0].split('{')[0]=='Generate':
-            report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')+'.pdf'
+            report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')
             print('Generating ',report_name,'...')
             pdf = FPDF()
             for Heading,data in Main_result.items():
@@ -151,11 +151,20 @@ def generateReport_v3(df):
                 pdf.image(temp_path+image_name, x = 20, y = None, w = 150, h = 120, type = '', link = '')
                 os.remove(temp_path+image_name)
             try:    
-                pdf.output(report_name, 'F')
+                pdf.output(report_name+".pdf", 'F')
                 Main_result = {}
             except:
-                print('Error while saving PDF file... Failed to generate PDF report')
-                return -1
+                success = False
+                for x in range(11):
+                    try:
+                        pdf.output(report_name+"_"+str(x+1)+".pdf", 'F')
+                        success = True
+                        break
+                    except:
+                        continue
+                if not(success):
+                    print("Error creating PDF report even after 10 attempts.")
+                    return -1
         else:
             print('Invalid Syntax in report_filters.txt... PDF report not generated')
             return -1
@@ -999,6 +1008,8 @@ def sbt_data_collection():
     df=df.drop(columns=['Unnamed: 0'])
     filter_list = parse_filter()
     apply_filter(filter_list,df)
+    if settings_dict['Generate_pdf']=='1':
+        generateReport_v3(df)
        
 
 #Main program starts here
