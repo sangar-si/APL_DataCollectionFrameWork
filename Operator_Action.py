@@ -21,6 +21,151 @@ Change the code for resume logic to be able to handle resume from the start.
 '''
 #Function that will import all excel files in a folder
 #It will take in the path as input and return a dataframe will contain a concatination of all entries of all three files
+def convert_df_to_plot(df_input):
+    df_input = df_input.head(int(settings_dict["Include_top"]))
+    col = list(df_input.columns)
+    pv = []
+    count = []
+    duration = []
+    for i in range(len(col)-1):
+        pv.append(list(df_input.loc[:,col[0]]))
+        for j in range(6):
+            count.append(df_input.iloc[j,i+1])
+            duration.append(col[i+1])
+    pv = sum(pv,[])
+    df_plot = pd.DataFrame()
+    df_plot[col[0]] = pv
+    df_plot["Count"] = count
+    df_plot["Period"] = duration
+    return df_plot
+
+def process(value):
+    return value.split(' ')[1].split('-')[0]
+def process1(value):
+    return value.split(' ')[1].split('-')[1]
+def process2(value):
+    if int(value.split(' ')[1].split('-')[1])<=15:
+        return 'FN1'
+    return 'FN2'
+
+def pivott_v3(df, FP, FV, PE, FN):
+    mon = ['January','February','March', 'April','May','June','July','August','September','October','November','December']
+    data=df.copy()
+    for i in range(0,len(FP)):
+        filt = FP[i]
+        Var = FV[i]
+        for j in Var:
+            data = data[data[filt] == j]
+    data['month']=data['EventTime'].apply(process)
+    data['date']=data['EventTime'].apply(process1)
+    #data = data.groupby(PE).size().rename('Count').to_frame()
+    if FN==0:
+        MO = list(set(data['month']))
+        MO.sort()
+        Month = dict()
+        for k in MO:
+            mOnth = mon[int(k)-1]
+            data1 = data[data['month']==k]
+            #data.head()
+            Result=dict()
+            for i in data1[PE]:
+                Result[i] = Result.get(i, 0) + 1
+            for j in df[PE]:
+                if j not in list(Result.keys()):
+                    Result[j]=0
+            sorted_keys = sorted(Result, key=Result.get, reverse=True)
+            sorted_Result=dict()
+            for w in sorted_keys:
+                sorted_Result[w] = Result[w]
+            Month[mOnth]=sorted_Result
+        m=0
+        for Title, Counts in Month.items():
+            if m==0:
+                df_ = pd.DataFrame()
+                df_[PE]=list(Counts.keys())
+                df_[Title]=list(Counts.values())
+                m+=1
+            lis=[]
+            for l in list(df_[PE]):
+                lis.append(Counts[l])
+            df_[Title]=lis        
+        return df_
+    if FN==1:
+        data['Fo_Ni']=data['EventTime'].apply(process2)
+        data[(data['Fo_Ni']=='FN1')&(data['month']=='10')]
+        MO = list(set(data['month']))   
+        MO.sort()
+        FN = dict()
+        for k in MO:
+            mOnth = mon[int(k)-1]
+            data1 = data[data['month']==k]
+            FO = list(set(data1['Fo_Ni']))
+            FO.sort()
+            for l in FO:
+                ref = mOnth+' '+l
+                data2 = data1[data1['Fo_Ni']==l]
+                Result = dict()
+                for i in data2[PE]:
+                    Result[i] = Result.get(i, 0) + 1
+                for j in df[PE]:
+                    if j not in list(Result.keys()):
+                        Result[j]=0
+                sorted_keys = sorted(Result, key=Result.get, reverse=True)
+                sorted_Result=dict()
+                for w in sorted_keys:
+                    sorted_Result[w] = Result[w]
+                FN[ref]=sorted_Result
+        m=0
+        for Title, Counts in FN.items():
+            if m==0:
+                df_ = pd.DataFrame()
+                df_[PE]=list(Counts.keys())
+                df_[Title]=list(Counts.values())
+                m+=1
+            lis=[]
+            for l in list(df_[PE]):
+                lis.append(Counts[l])
+            df_[Title]=lis
+        return df_
+
+def process_allowable_interventions(df):
+    df = df.reset_index()
+    path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"allowed_interventions.txt"
+    allowable_indices = []
+    allowable_timeticks = []
+    print("Processing allowable interventions...")
+    try:
+        with open(path) as f:
+            filt = f.read()
+    except:
+        print("Failed to open allowed_interventions.txt... Skipping this step")
+        return df
+    filt = filt.replace("\n","").replace(" ","").replace("&","=").replace("Acceptable{[","").replace("]}","").replace("%"," ").split(";")
+    if len(filt[-1]) == 0:
+        filt.pop()
+    for line in filt:
+        line = line.split('=')
+        i=0
+        data = df.copy()
+        while(i<len(line)):
+            data = data[data[line[i]] == line[i+1]]
+            i+=2
+        allowable_indices=allowable_indices+(list(data.loc[:,"Index"].values))
+        allowable_timeticks=allowable_timeticks+(list(data.loc[:,"TimeTicks"].values))
+    i=0
+    count = 0
+    if len(allowable_indices)>0:
+        for entry in list(df.loc[:,"Index"]):
+            if entry in allowable_indices:
+                df.loc[i,"Action_Class"] = "Allowed"
+                count+=1
+            i+=1
+    else:
+        print("No allowable interventions found")
+        return df
+    print("Successfully processed "+str(count)+" allowed interventions")
+    return df
+
 def apply_filter(filter_list,df):
     fltr_cnt = len(filter_list)
     print("Applying ",fltr_cnt," filters...")
@@ -67,7 +212,7 @@ def pivott_v2(df, FP, FV, PE):
     ret_frame = pd.DataFrame(data=Result_dict).sort_values('Count',ascending=False)
     return ret_frame
 
-def generateReport_v3(df):
+def generateReport_v3(df, report_path=os.getcwd()):
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
     temp_path = os.getcwd()+"\\"+"temp"+"\\"
     with open(path) as f:
@@ -94,41 +239,67 @@ def generateReport_v3(df):
                 filt_p.append(m[0])
                 filt_v.append(f_V)
             PE=line[1].split('=')[1]
-            Heading=line[2].split('=')[1].replace('}','')
-            Main_result[Heading]=pivott_v2(df, filt_p, filt_v, PE)
+            Heading=line[2].split('=')[1] 
+            FN = int(line[3].split('=')[1].replace("}",""))
+            Main_result[Heading]=pivott_v3(df, filt_p, filt_v, PE, FN)
             
         elif line[0].split('{')[0]=='Generate':
             report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')
             print('Generating ',report_name,'...')
             pdf = FPDF()
+            try:
+                print("Reading report settings...")
+                heading_height = int(settings_dict["report_heading_height"])
+                value_height = int(settings_dict["report_value_height"])
+                column_width_var = int(settings_dict["report_column_width_var"])
+                column_width_value = int(settings_dict["report_column_width_value"])
+                indent = int(settings_dict["report_indent"])
+                font = settings_dict["report_font"]
+                print("Settings loaded successfully")
+            except:
+                print("Load failed... Going with default settings")
+                heading_height = 5
+                value_height = 5
+                column_width_var = 40
+                column_width_value = 20
+                indent = 15
+                font = 'arial'
             for Heading,data in Main_result.items():
                 if len(data.iloc[:,1].values)<1:
                     print("No result for filter entry '",Heading,"'")
                     continue
+                cols = list(data.columns)
                 pdf.add_page()
                 pdf.set_xy(0, 0)
-                pdf.set_font('arial', 'B', 14)
+                pdf.set_font(font, 'B', 12)
                 pdf.cell(90, 5, " ", 0, 1, 'C')
                 pdf.cell(60)
-                pdf.cell(75, 10, Heading, 0, 1, 'C')
-                pdf.cell(90, 10, " ", 0, 1, 'C')
+                pdf.cell(75, heading_height, Heading, 0, 1, 'C')
+                pdf.cell(90, heading_height, " ", 0, 1, 'C')
                 #pdf.cell(-40)
-                pdf.set_font('arial', 'B', 12)
-                pdf.cell(40)
-                pdf.cell(15, 10, 'S.No', 1, 0, 'C')
-                pdf.cell(50, 10, data.columns[0], 1, 0, 'C')
-                pdf.cell(30, 10, 'Counts', 1, 1, 'C')
+                pdf.set_font(font, 'B', 8)
+                pdf.cell(indent)
+                pdf.cell(10, heading_height, 'S.No', 1, 0, 'C')
+                pdf.cell(column_width_var, heading_height, data.columns[0], 1, 0, 'C')
+                for i in range(len(cols)-1):
+                    if i==len(cols)-2:
+                        pdf.cell(column_width_value, heading_height, cols[i+1], 1, 1, 'C')
+                    else:
+                        pdf.cell(column_width_value, heading_height, cols[i+1], 1, 0, 'C')
                 #pdf.cell(-90)
-                pdf.set_font('arial', '', 8)
+                pdf.set_font(font, '', 8)
                 keyss= list(data.iloc[:,0])
-                values = list(data.iloc[:,1])
                 for i in range(0, len(keyss)):
                     if i==10:
                         break
-                    pdf.cell(40)
-                    pdf.cell(15, 5, '%s' % (str(i+1)), 1, 0, 'C')
-                    pdf.cell(50, 5, '%s' % (str(keyss[i])), 1, 0, 'R')
-                    pdf.cell(30, 5, '%s' % (str(values[i])), 1, 1, 'L')
+                    pdf.cell(indent)
+                    pdf.cell(10, value_height, '%s' % (str(i+1)), 1, 0, 'C')
+                    pdf.cell(column_width_var, value_height, '%s' % (str(keyss[i])), 1, 0, 'R')
+                    for j in range(len(cols)-1):
+                        if j==len(cols)-2:
+                            pdf.cell(column_width_value, value_height, '%s' % (str(data.iloc[i,j+1])), 1, 1, 'L')
+                        else:
+                            pdf.cell(column_width_value, value_height, '%s' % (str(data.iloc[i,j+1])), 1, 0, 'L')
                     #pdf.cell(-90)
                 sns.set(rc={'figure.figsize':(11,11)})
                 figure(figsize=(11,11))
@@ -136,7 +307,11 @@ def generateReport_v3(df):
                 if pal == 'random':
                     palettes = ["Blues_d","rocket","deep","vlag","flare","pastel", "mako","crest","magma","viridis","rocket_r","icefire","Spectral","coolwarm"]
                     pal = palettes[random.randrange(0,len(palettes),1)]
-                sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data.head(int(settings_dict['Include_top'])), palette=pal)
+                data = convert_df_to_plot(data)
+                if len(set(list(data.loc[:,"Period"].values))) > 1:
+                    sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data, palette=pal, hue = "Period")
+                else:
+                    sns_plot = sns.barplot(x = data.columns[0], y = 'Count', data=data, palette=pal)
                 for p in sns_plot.patches:
                     sns_plot.annotate(format(p.get_height(), '.0f'), 
                                 (p.get_x() + p.get_width() / 2., p.get_height()), 
@@ -151,7 +326,7 @@ def generateReport_v3(df):
                 pdf.image(temp_path+image_name, x = 20, y = None, w = 150, h = 120, type = '', link = '')
                 os.remove(temp_path+image_name)
             try:    
-                pdf.output(report_name+".pdf", 'F')
+                pdf.output(report_path+"\\"+report_name+".pdf", 'F')
                 Main_result = {}
             except:
                 success = False
@@ -168,7 +343,7 @@ def generateReport_v3(df):
         else:
             print('Invalid Syntax in report_filters.txt... PDF report not generated')
             return -1
-
+            
 def generateReport_v2(df):
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
     temp_path = os.getcwd()+"\\"+"temp"+"\\"
@@ -542,6 +717,9 @@ def open_files_in_folder(path, header_no):
     print("File concatination sucessful.")  
     return df_concat
 #This helps us to open all the excel files in a folder
+def convert_to_ticks(value):
+    value = value.replace(" ","-").replace(":","-").replace(".","-").split("-")
+    return time.mktime((int(value[0]), int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), 0 , 0, 0))
 
 def sort_by_time(df):
     time_list = []
@@ -549,11 +727,11 @@ def sort_by_time(df):
     date = []
     time_value = []
     for i in list(df.loc[:,"EventTime"].values):
-        split_val = i.replace("-"," ").replace(":"," ").split(" ")
+        split_val = i.replace(":","-").replace(" ","-").split("-")
         date_time_split = i.split(" ")
         #t_tuple = ((split_val[2]),(split_val[1]),(split_val[0]),(split_val[3]),(split_val[4]),(split_val[5]),0,0,0)
         #print(t_tuple)
-        t_tuple = (int(split_val[3]),int(split_val[2]),int(split_val[1]),int(split_val[4]),int(split_val[5]),int(split_val[6]),0,0,0)
+        t_tuple = (int(split_val[3]),int(split_val[1]),int(split_val[2]),int(split_val[4]),int(split_val[5]),int(split_val[6]),0,0,0)
         t_ticks = time.mktime(t_tuple)
         time_list.append(t_ticks)
         date.append(date_time_split[1])
@@ -897,8 +1075,14 @@ def resume_temp():
         except:
             print("CSV Build also failed... Try running from script")
             sys.exit("Exiting...")
-    os.remove(temp_path)
-    os.remove(temp_path_1)
+    try:
+        os.remove(temp_path)
+    except:
+        pass
+    try:
+        os.remove(temp_path_1)
+    except:
+        pass
     print("Press any key to exit...")
     _ = input("")
     sys.exit("Exiting...")
@@ -972,6 +1156,9 @@ def detailed_mode():
         action_class = action_definition(df)
         df["Action_Class"] = action_class
         df = df.drop(columns=['Unnamed: 0'])
+        if settings_dict["process_allowable_interventions"]=='1':
+            df=process_allowable_interventions(df)
+        df=df.drop(columns=['index'])
         print("Building temp file checkpoint...")
         df.to_pickle(temp_path)
         print("Checkpoint created... If unsuccessful, resume from here.")
@@ -983,7 +1170,7 @@ def detailed_mode():
         os.remove(temp_path)
         print("Consolidated report built successfully.")
         if settings_dict['Generate_pdf']=='1':
-            generateReport_v3(df)
+            df = generateReport_v3(df)
         print("Thanks!\nPress any key to exit")
         _ = input("")
         sys.exit("Exiting...")
@@ -1006,12 +1193,13 @@ def sbt_data_collection():
     action_class = action_definition(df,action_file_path=action_class_path)
     df["Action_Class"] = action_class
     df=df.drop(columns=['Unnamed: 0'])
+    if settings_dict["process_allowable_interventions"]=='1':
+        df=process_allowable_interventions(df)
     filter_list = parse_filter()
     apply_filter(filter_list,df)
     if settings_dict['Generate_pdf']=='1':
-        generateReport_v3(df)
+        generateReport_v3(df, report_path = settings_dict["Save_Destination_Path"])
        
-
 #Main program starts here
 print("Reading settings...")
 settings_dict = parse_config()

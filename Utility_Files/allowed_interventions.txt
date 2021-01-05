@@ -1,0 +1,14 @@
+Acceptable{[Block = WPB & Change_Type= Control%Action & Equipment_Group = TSD & Object_Type = Agitator]};
+Acceptable{[Block = WPB & Change_Type= Control%Action & Equipment_Group = MIXER & Object_Type = Agitator]};
+
+
+
+
+
+
+
+
+
+
+
+

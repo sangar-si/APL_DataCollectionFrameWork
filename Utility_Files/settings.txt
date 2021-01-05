@@ -8,7 +8,11 @@ Duplicates_Filter_Time-{10};
 Generate_pdf-{1};
 Include_top-{6};
 plot_color_palette-{random};
-
-
-
+process_allowable_interventions-{1};
+report_indent-{25};
+report_heading_height-{5};
+report_value_height-{5};
+report_column_width_var-{40};
+report_column_width_value-{20};
+report_font-{arial};
 
