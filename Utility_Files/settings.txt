@@ -15,4 +15,5 @@ report_value_height-{5};
 report_column_width_var-{40};
 report_column_width_value-{20};
 report_font-{arial};
+report_load_path-{current};
 

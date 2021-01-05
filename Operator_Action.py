@@ -215,6 +215,23 @@ def pivott_v2(df, FP, FV, PE):
 def generateReport_v3(df, report_path=os.getcwd()):
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"report_filters.txt"
     temp_path = os.getcwd()+"\\"+"temp"+"\\"
+    try:
+        print("Reading report settings...")
+        heading_height = int(settings_dict["report_heading_height"])
+        value_height = int(settings_dict["report_value_height"])
+        column_width_var = int(settings_dict["report_column_width_var"])
+        column_width_value = int(settings_dict["report_column_width_value"])
+        indent = int(settings_dict["report_indent"])
+        font = settings_dict["report_font"]
+        print("Settings loaded successfully")
+    except:
+        print("Load failed... Going with default settings")
+        heading_height = 5
+        value_height = 5
+        column_width_var = 40
+        column_width_value = 20
+        indent = 15
+        font = 'arial'
     with open(path) as f:
         filt = f.read()
     filt=filt.replace('\n',"").replace(" ","").replace("]}","").replace("%"," ")
@@ -247,23 +264,6 @@ def generateReport_v3(df, report_path=os.getcwd()):
             report_name=line[0].split('{')[1].replace('Filename=','').replace('}','')
             print('Generating ',report_name,'...')
             pdf = FPDF()
-            try:
-                print("Reading report settings...")
-                heading_height = int(settings_dict["report_heading_height"])
-                value_height = int(settings_dict["report_value_height"])
-                column_width_var = int(settings_dict["report_column_width_var"])
-                column_width_value = int(settings_dict["report_column_width_value"])
-                indent = int(settings_dict["report_indent"])
-                font = settings_dict["report_font"]
-                print("Settings loaded successfully")
-            except:
-                print("Load failed... Going with default settings")
-                heading_height = 5
-                value_height = 5
-                column_width_var = 40
-                column_width_value = 20
-                indent = 15
-                font = 'arial'
             for Heading,data in Main_result.items():
                 if len(data.iloc[:,1].values)<1:
                     print("No result for filter entry '",Heading,"'")
@@ -706,8 +706,11 @@ def open_files_in_folder(path, header_no):
     for i in range(len(f)):
         full_path = path+'\\'+f[i]
         #print('Reading File ',f[i])
-        dat_f = pd.read_excel(full_path, index_col = None, header = header_no-1,sheet_name=0, skiprows=0)
-        remove_nan(dat_f)
+        try:
+            dat_f = pd.read_excel(full_path, index_col = None, header = header_no-1,sheet_name=0, skiprows=0)
+            remove_nan(dat_f)
+        except:
+            dat_f = pd.read_csv(full_path)
         dat_frame.append(dat_f)
         print(str(i+1),'/',str(len(f)),' files read successfully', end='\r')
     print("\n")
@@ -1112,12 +1115,19 @@ def detailed_mode():
     ret = 1
     mode = input("")
     if mode == '3':
-        path = str(os.getcwd())+"\\"+"Consolidated_Report.csv"
-        try:
-            df = pd.read_csv(path)
-        except:
-            print("Error reading file. Ensure you have saved the Consolidated_Report.csv in the current folder and try again")
-            sys.exit("Exiting...")
+        if settings_dict["report_load_path"]=="current":
+            try:
+                path = os.getcwd()+"\\"+"Consolidated_Report.csv"
+                df = pd.read_csv(path)
+            except:
+                print("Error reading file. Ensure you have saved the Consolidated_Report.csv in the current folder and try again")
+                sys.exit("Exiting...")
+        else:
+            try:
+                df = open_files_in_folder(settings_dict["report_load_path"], header_no=0)
+            except:
+                print("Error reading file. Ensure you have saved the Reports in the CSV_Report folder and try again. Else use current in settings.")
+                sys.exit("Exiting...")
         ret = generateReport_v3(df)
         print("Report generated successfully.")
         sys.exit("Exiting...")
