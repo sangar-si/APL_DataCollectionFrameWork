@@ -11,6 +11,7 @@ from pylab import title, xlabel, ylabel, xticks, bar, legend, axis, savefig, fig
 from fpdf import FPDF
 import seaborn as sns
 import random
+import csv
 
 
 ''' Update notes --- Beta V.1.1
@@ -21,6 +22,143 @@ Change the code for resume logic to be able to handle resume from the start.
 '''
 #Function that will import all excel files in a folder
 #It will take in the path as input and return a dataframe will contain a concatination of all entries of all three files
+
+def open_mes_map():
+    #Replace the path here with settings dict path
+    with open(os.getcwd()+"\\Utility_Files\\"+"MES_Path_Map.csv", mode='r') as infile:
+        reader = csv.reader(infile)
+        mes_map = {rows[0]:rows[1] for rows in reader}
+    return mes_map
+
+def norm(path):
+    return path.split("]")[1].split("/",2)[2]
+
+def convert_to_ticks(value):
+    value = value.replace(" ","-").replace(":","-").replace(".","-").split("-")
+    return time.mktime((int(value[0]), int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), 0 , 0, 0))
+
+def normalize_time_mes(df):
+    start_time = []
+    end_time = []
+    for i in range(len(list(df.loc[:,"Start Time"]))):
+        start_time.append(convert_to_ticks(str(df.loc[i,"Start Time"])))
+        end_time.append(convert_to_ticks(str(df.loc[i,"End Time"])))
+    df["Start_Time_Ticks"] = start_time
+    df["End_Time_Ticks"] = end_time
+    return df.sort_values('Start_Time_Ticks',ascending = True).replace(np.nan,"nan",regex = True)
+
+def is_in(key_words,chunk):
+    for word in key_words:
+        if word.lower() in chunk.lower():
+            return True
+        else:
+            continue
+    return False
+
+def map_from_mes_data(df,mes_df, mes_map):
+    po = []
+    batch = []
+    source = []
+    material = []
+    phase_no = []
+    setpoint = []
+    dest = []
+    line = []
+    main_equip = []
+    main_eq_match = []
+    print("Mapping MES Data...")
+    for i in range(len(list(df.loc[:,"Path"].values))):
+        if(i%1000 == 0):
+            print(str(i),'/',str(len(list(df.loc[:,"Path"].values))),' records processed', end='\r')
+        timetick = df.loc[i,"TimeTicks"]
+        if df.loc[i,"Object_Type"] not in settings_dict["MES_report_obj_to_incl"].split(","): #changed
+            po.append('nan')
+            batch.append('nan')
+            source.append('nan')
+            material.append('nan')
+            phase_no.append('nan')
+            setpoint.append('nan')
+            dest.append('nan')
+            line.append('nan')
+            main_equip.append('nan')
+            main_eq_match.append('nan')
+            continue
+        try:
+            equipment = mes_map[norm(df.loc[i,"Path"])]
+        except:
+            po.append('nan')
+            batch.append('nan')
+            source.append('nan')
+            material.append('nan')
+            phase_no.append('nan')
+            setpoint.append('nan')
+            dest.append('nan')
+            line.append('nan')
+            main_equip.append('nan')
+            main_eq_match.append('nan')
+            continue
+        ld_check = False
+        me_check = False
+        mes_df_2 = mes_df[(mes_df["Start_Time_Ticks"]<= timetick) & (mes_df["End_Time_Ticks"]>= timetick)]
+        if is_in(settings_dict["Tra_keys"].split(","), df.loc[i,"Path"]):
+            mes_df_2=mes_df_2[(mes_df_2["Destination"].str.contains(equipment))]
+            ld_check = True
+        elif is_in(settings_dict["Line_keys"].split(","), equipment):
+            mes_df_2=mes_df_2[(mes_df_2["Line"].str.contains(equipment))]
+            ld_check = True
+        else:
+            pass
+        if (ld_check==False) or (len(list(mes_df_2.loc[:,"Phase No"]))<1):
+            mes_df_2=mes_df_2[(mes_df_2["Main Equipment"].str.contains(equipment))]
+            me_check=True
+        mes_df_2 = mes_df_2.reset_index()
+        if len(list(mes_df_2.loc[:,"Phase No"]))>0:
+            if not(me_check):
+                po.append(mes_df_2.loc[0,"PONO"])
+                batch.append(mes_df_2.loc[0,"Product Name"])
+                source.append(mes_df_2.loc[0,"Source"])
+                material.append(mes_df_2.loc[0,"Material Name"])
+                phase_no.append(mes_df_2.loc[0,"Phase No"])
+                setpoint.append(mes_df_2.loc[0,"Std. Quantity"])
+                dest.append(mes_df_2.loc[0,"Destination"])
+                line.append(mes_df_2.loc[0,"Line"])
+                main_equip.append(mes_df_2.loc[0,"Main Equipment"])
+                main_eq_match.append('No')
+            else:
+                po.append(mes_df_2.loc[0,"PONO"])
+                batch.append(mes_df_2.loc[0,"Product Name"])
+                source.append(mes_df_2.loc[0,"Source"])
+                material.append(mes_df_2.loc[0,"Material Name"])
+                phase_no.append(mes_df_2.loc[0,"Phase No"])
+                setpoint.append(mes_df_2.loc[0,"Std. Quantity"])
+                dest.append(mes_df_2.loc[0,"Destination"])
+                line.append(mes_df_2.loc[0,"Line"])
+                main_equip.append(mes_df_2.loc[0,"Main Equipment"])     
+                main_eq_match.append('Yes')     
+        else:
+            po.append('nan')
+            batch.append('nan')
+            source.append('nan')
+            material.append('nan')
+            phase_no.append('nan')
+            setpoint.append('nan')
+            dest.append('nan')
+            line.append('nan')
+            main_equip.append('nan')
+            main_eq_match.append('nan')
+    df["PO"]=po
+    df["Batch_Material"]=batch
+    df["Source"] = source
+    df["Material"]=material
+    df["Phase No"]=phase_no
+    df["Set_Point"]=setpoint
+    df["Destination"]=dest
+    df["line"]=line
+    df["Main Equipment"]=main_equip
+    df["Mapped with Main Eq"]=main_eq_match
+    print(str(len(list(df.loc[:,"Path"].values))),'/',str(len(list(df.loc[:,"Path"].values))),' records processed', end='\n')
+    print("MES Data Mapped Successfully")
+
 def convert_df_to_plot(df_input):
     df_input = df_input.head(int(settings_dict["Include_top"]))
     col = list(df_input.columns)
@@ -223,6 +361,7 @@ def generateReport_v3(df, report_path=os.getcwd()):
         column_width_value = int(settings_dict["report_column_width_value"])
         indent = int(settings_dict["report_indent"])
         font = settings_dict["report_font"]
+        #to be added more
         print("Settings loaded successfully")
     except:
         print("Load failed... Going with default settings")
@@ -694,7 +833,7 @@ def update_vocab_file():
     pass
 
 
-def open_files_in_folder(path, header_no):
+def open_files_in_folder(path, header_no, remove_nan_set=True):
     #Loading a list of files from a directory
     print("Loading files...")
     f = []
@@ -708,7 +847,8 @@ def open_files_in_folder(path, header_no):
         #print('Reading File ',f[i])
         try:
             dat_f = pd.read_excel(full_path, index_col = None, header = header_no-1,sheet_name=0, skiprows=0)
-            remove_nan(dat_f)
+            if remove_nan_set:
+                remove_nan(dat_f)
         except:
             dat_f = pd.read_csv(full_path)
         dat_frame.append(dat_f)
@@ -720,9 +860,6 @@ def open_files_in_folder(path, header_no):
     print("File concatination sucessful.")  
     return df_concat
 #This helps us to open all the excel files in a folder
-def convert_to_ticks(value):
-    value = value.replace(" ","-").replace(":","-").replace(".","-").split("-")
-    return time.mktime((int(value[0]), int(value[1]), int(value[2]), int(value[3]), int(value[4]), int(value[5]), 0 , 0, 0))
 
 def sort_by_time(df):
     time_list = []
@@ -1169,6 +1306,11 @@ def detailed_mode():
         if settings_dict["process_allowable_interventions"]=='1':
             df=process_allowable_interventions(df)
         df=df.drop(columns=['index'])
+        if settings_dict["Map_MES"]=='1':
+            mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False)
+            mes_dat_frame = normalize_time_mes(mes_dat_frame)
+            mes_map = open_mes_map()
+            map_from_mes_data(df,mes_dat_frame,mes_map)
         print("Building temp file checkpoint...")
         df.to_pickle(temp_path)
         print("Checkpoint created... If unsuccessful, resume from here.")
@@ -1205,6 +1347,11 @@ def sbt_data_collection():
     df=df.drop(columns=['Unnamed: 0'])
     if settings_dict["process_allowable_interventions"]=='1':
         df=process_allowable_interventions(df)
+    if settings_dict["Map_MES"]=='1':
+        mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False)
+        mes_dat_frame = normalize_time_mes(mes_dat_frame)
+        mes_map = open_mes_map()
+        map_from_mes_data(df,mes_dat_frame,mes_map)
     filter_list = parse_filter()
     apply_filter(filter_list,df)
     if settings_dict['Generate_pdf']=='1':

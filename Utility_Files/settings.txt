@@ -16,4 +16,12 @@ report_column_width_var-{40};
 report_column_width_value-{20};
 report_font-{arial};
 report_load_path-{current};
+report_image_indent-{20};
+report_image_width-{150};
+report_image_height-{120};
+Line_keys-{LINE,CLR,PGL};
+Tra_keys-{Tra};
+Map_MES-{1};
+MES_report_header-{7};
+MES_report_obj_to_incl-{Sequence};
 
