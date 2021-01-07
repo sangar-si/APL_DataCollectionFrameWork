@@ -12,6 +12,7 @@ from fpdf import FPDF
 import seaborn as sns
 import random
 import csv
+from progress.bar import Bar
 
 
 ''' Update notes --- Beta V.1.1
@@ -67,9 +68,11 @@ def map_from_mes_data(df,mes_df, mes_map):
     main_equip = []
     main_eq_match = []
     print("Mapping MES Data...")
+    bar = Bar("Data Mapping", max=len(list(df.loc[:,"Path"].values)))
     for i in range(len(list(df.loc[:,"Path"].values))):
-        if(i%1000 == 0):
-            print(str(i),'/',str(len(list(df.loc[:,"Path"].values))),' records processed', end='\r')
+        #if(i%1000 == 0):
+            #print(str(i),'/',str(len(list(df.loc[:,"Path"].values))),' records processed', end='\r')
+        bar.next()
         timetick = df.loc[i,"TimeTicks"]
         if df.loc[i,"Object_Type"] not in settings_dict["MES_report_obj_to_incl"].split(","): #changed
             po.append('nan')
@@ -156,6 +159,8 @@ def map_from_mes_data(df,mes_df, mes_map):
     df["line"]=line
     df["Main Equipment"]=main_equip
     df["Mapped with Main Eq"]=main_eq_match
+    bar.finish()
+    print("")
     print(str(len(list(df.loc[:,"Path"].values))),'/',str(len(list(df.loc[:,"Path"].values))),' records processed', end='\n')
     print("MES Data Mapped Successfully")
 
@@ -270,7 +275,7 @@ def process_allowable_interventions(df):
     df = df.reset_index()
     path = os.getcwd()+"\\"+"Utility_Files"+"\\"+"allowed_interventions.txt"
     allowable_indices = []
-    allowable_timeticks = []
+    #allowable_timeticks = []
     print("Processing allowable interventions...")
     try:
         with open(path) as f:
@@ -288,19 +293,30 @@ def process_allowable_interventions(df):
         while(i<len(line)):
             data = data[data[line[i]] == line[i+1]]
             i+=2
-        allowable_indices=allowable_indices+(list(data.loc[:,"Index"].values))
-        allowable_timeticks=allowable_timeticks+(list(data.loc[:,"TimeTicks"].values))
+        allowable_indices=allowable_indices+(list(data.index))
+        #allowable_timeticks=allowable_timeticks+(list(data.loc[:,"TimeTicks"].values))
     i=0
     count = 0
+    l = len(set(allowable_indices))
     if len(allowable_indices)>0:
-        for entry in list(df.loc[:,"Index"]):
-            if entry in allowable_indices:
-                df.loc[i,"Action_Class"] = "Allowed"
-                count+=1
+        #for entry in list(df.loc[:,"Index"]):
+        #    if entry in set(allowable_indices):
+        #        df.loc[i,"Action_Class"] = "Allowed"
+        #        count+=1
+        bar = Bar("Allowable Actions", max=len(set(allowable_indices)))
+        for entry in set(allowable_indices):
+            bar.next()
+            df.loc[entry,"Action_Class"] = "Allowed"
+            count+=1
             i+=1
+            #if(i%1000 == 0):
+            #    print(str(i),'/',str(l),' records processed', end='\r')
     else:
         print("No allowable interventions found")
         return df
+    bar.finish()
+    print("")
+    print(str(i),'/',str(l),' records processed', end='\n')
     print("Successfully processed "+str(count)+" allowed interventions")
     return df
 
@@ -599,19 +615,24 @@ def filter_dupes_v4(df, time):
             temp_dict[k] = []
             temp_dict[k].append(x)
     
-
+    bar = Bar("Filtering...",max=tot)
+    
     for k in list(temp_dict.keys()):
         ticks_ptr = temp_dict[k][0][0]
         count+=1
         keepindex.append(temp_dict[k][0][1])
-        print(str(count),'/',str(tot),' records processed', end='\r')
+        #print(str(count),'/',str(tot),' records processed', end='\r')
+        bar.next()
         for i in range(1,len(temp_dict[k])):
             count+=1
+            bar.next()
             if (temp_dict[k][i][0] - ticks_ptr)>time:
                 keepindex.append(temp_dict[k][i][1])
                 ticks_ptr = temp_dict[k][i][0]
             else:
                 throwindex.append(temp_dict[k][i][1])
+    bar.finish()
+    print("")
     print(str(count),'/',str(tot),' records processed')
     print("Records checked. Cleaning up...")
     df.drop(index=throwindex,inplace=True)
@@ -833,7 +854,7 @@ def update_vocab_file():
     pass
 
 
-def open_files_in_folder(path, header_no, remove_nan_set=True):
+def open_files_in_folder(path, header_no, remove_nan_set=True, read_mes=False):
     #Loading a list of files from a directory
     print("Loading files...")
     f = []
@@ -849,6 +870,9 @@ def open_files_in_folder(path, header_no, remove_nan_set=True):
             dat_f = pd.read_excel(full_path, index_col = None, header = header_no-1,sheet_name=0, skiprows=0)
             if remove_nan_set:
                 remove_nan(dat_f)
+            if read_mes:
+                if list(dat_f.columns)[int(settings_dict["MES_ref_col"].split(",")[0])]!=settings_dict["MES_ref_col"].split(",")[1]:
+                    dat_f = pd.read_excel(full_path, index_col = None, header = header_no,sheet_name=0, skiprows=0)
         except:
             dat_f = pd.read_csv(full_path)
         dat_frame.append(dat_f)
@@ -1307,7 +1331,7 @@ def detailed_mode():
             df=process_allowable_interventions(df)
         df=df.drop(columns=['index'])
         if settings_dict["Map_MES"]=='1':
-            mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False)
+            mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False,  read_mes=True)
             mes_dat_frame = normalize_time_mes(mes_dat_frame)
             mes_map = open_mes_map()
             map_from_mes_data(df,mes_dat_frame,mes_map)
@@ -1348,7 +1372,7 @@ def sbt_data_collection():
     if settings_dict["process_allowable_interventions"]=='1':
         df=process_allowable_interventions(df)
     if settings_dict["Map_MES"]=='1':
-        mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False)
+        mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False,  read_mes=True)
         mes_dat_frame = normalize_time_mes(mes_dat_frame)
         mes_map = open_mes_map()
         map_from_mes_data(df,mes_dat_frame,mes_map)
