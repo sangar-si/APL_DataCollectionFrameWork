@@ -222,6 +222,7 @@ def pivott_v3(df, FP, FV, PE, FN):
                 sorted_Result[w] = Result[w]
             Month[mOnth]=sorted_Result
         m=0
+        df_ = pd.DataFrame()
         for Title, Counts in Month.items():
             if m==0:
                 df_ = pd.DataFrame()
@@ -420,7 +421,7 @@ def generateReport_v3(df, report_path=os.getcwd()):
             print('Generating ',report_name,'...')
             pdf = FPDF()
             for Heading,data in Main_result.items():
-                if len(data.iloc[:,1].values)<1:
+                if len(data)<1:
                     print("No result for filter entry '",Heading,"'")
                     continue
                 cols = list(data.columns)
