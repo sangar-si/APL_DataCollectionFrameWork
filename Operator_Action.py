@@ -871,8 +871,10 @@ def open_files_in_folder(path, header_no, remove_nan_set=True, read_mes=False):
             if remove_nan_set:
                 remove_nan(dat_f)
             if read_mes:
-                if list(dat_f.columns)[int(settings_dict["MES_ref_col"].split(",")[0])]!=settings_dict["MES_ref_col"].split(",")[1]:
-                    dat_f = pd.read_excel(full_path, index_col = None, header = header_no,sheet_name=0, skiprows=0)
+                hdr = header_no
+                while settings_dict["MES_ref_col"] not in list(dat_f.columns):
+                    dat_f = pd.read_excel(full_path, index_col = None, header = hdr,sheet_name=0, skiprows=0)
+                    hdr+=1
         except:
             dat_f = pd.read_csv(full_path)
         dat_frame.append(dat_f)
@@ -1332,6 +1334,9 @@ def detailed_mode():
         df=df.drop(columns=['index'])
         if settings_dict["Map_MES"]=='1':
             mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False,  read_mes=True)
+            mes_dat_frame.dropna(subset=["Start Time","End Time"], inplace = True, how='any')
+            mes_dat_frame = mes_dat_frame.reset_index()
+            mes_dat_frame.drop(columns=['index'], inplace = True)
             mes_dat_frame = normalize_time_mes(mes_dat_frame)
             mes_map = open_mes_map()
             map_from_mes_data(df,mes_dat_frame,mes_map)
@@ -1373,6 +1378,9 @@ def sbt_data_collection():
         df=process_allowable_interventions(df)
     if settings_dict["Map_MES"]=='1':
         mes_dat_frame = open_files_in_folder(path = os.getcwd()+"\\"+"MES_Reports"+"\\",header_no=int(settings_dict["MES_report_header"]), remove_nan_set = False,  read_mes=True)
+        mes_dat_frame.dropna(subset=["Start Time","End Time"], inplace = True, how='any')
+        mes_dat_frame = mes_dat_frame.reset_index()
+        mes_dat_frame.drop(columns=['index'], inplace = True)
         mes_dat_frame = normalize_time_mes(mes_dat_frame)
         mes_map = open_mes_map()
         map_from_mes_data(df,mes_dat_frame,mes_map)
