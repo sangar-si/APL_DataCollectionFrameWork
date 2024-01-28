@@ -22,6 +22,7 @@ function ResponsiveDrawer() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [expandedOption, setExpandedOption] = React.useState(null);
   const [selectedOption, setSelectedOption] = React.useState('Dashboard');
+//   const [selectedSubOption, setSelectedSubOption] = React.useState('Report');
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -30,7 +31,6 @@ function ResponsiveDrawer() {
   const handleMainOptionClick = (option) => {
     setExpandedOption(expandedOption === option ? null : option);
     setSelectedOption(option);
-
   };
 
   const mainListItems = [
@@ -56,7 +56,7 @@ function ResponsiveDrawer() {
               </ListItemButton>
             </ListItem>
             {expandedOption === mainListItem.mainOption && mainListItem.subOptions.map((subOption, subIndex) => (
-              <ListItem key={subOption} disablePadding sx={{ pl: 4 }} onClick={() => handleMainOptionClick(mainListItem.mainOption)}>
+              <ListItem key={subOption} disablePadding sx={{ pl: 4 }}>
                 <ListItemButton>
                   <ListItemIcon>
                     <AnalyticsIcon />
