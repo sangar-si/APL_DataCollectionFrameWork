@@ -15,14 +15,17 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import FactoryIcon from '@mui/icons-material/Factory';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import logo from "../../images/apl-logo.svg"
 
-const drawerWidth = 240;
+const drawerWidth = 220;
 
 function ResponsiveDrawer() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [expandedOption, setExpandedOption] = React.useState(null);
   const [selectedOption, setSelectedOption] = React.useState('Dashboard');
-//   const [selectedSubOption, setSelectedSubOption] = React.useState('Report');
+  const [selectedSubOption, setSelectedSubOption] = React.useState('Dashboard');
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -31,6 +34,14 @@ function ResponsiveDrawer() {
   const handleMainOptionClick = (option) => {
     setExpandedOption(expandedOption === option ? null : option);
     setSelectedOption(option);
+    setSelectedSubOption("Main Dashboard"); // Update selectedSubOption state
+    navigate(`/${option.toLowerCase() + "/main-dashboard"}`); // Navigate to the subOption route
+
+  };
+
+  const handleSubOptionClick = (mainOption, subOption) => {
+    setSelectedSubOption(subOption); // Update selectedSubOption state
+    navigate(`/${mainOption.toLowerCase() + "/"+ subOption.toLowerCase().replace(' ', '-')}`); // Navigate to the subOption route
   };
 
   const mainListItems = [
@@ -42,7 +53,9 @@ function ResponsiveDrawer() {
 
   const drawer = (
     <div>
-      <Toolbar />
+      <Toolbar>
+        <img src={logo} alt="Logo" style={{ height: '60px', width: 'auto' }} />
+      </Toolbar>
       <Divider />
       <List>
         {mainListItems.map((mainListItem, index) => (
@@ -56,7 +69,7 @@ function ResponsiveDrawer() {
               </ListItemButton>
             </ListItem>
             {expandedOption === mainListItem.mainOption && mainListItem.subOptions.map((subOption, subIndex) => (
-              <ListItem key={subOption} disablePadding sx={{ pl: 4 }}>
+              <ListItem key={subOption} disablePadding sx={{ pl: 4 }} onClick={() => handleSubOptionClick(mainListItem.mainOption, subOption)}>
                 <ListItemButton>
                   <ListItemIcon>
                     <AnalyticsIcon />
@@ -92,7 +105,7 @@ function ResponsiveDrawer() {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            {selectedOption}
+            {selectedOption} {/* Display selectedOption */}
           </Typography>
         </Toolbar>
       </AppBar>
@@ -131,8 +144,9 @@ function ResponsiveDrawer() {
         sx={{ flexGrow: 1, p: 3, width: `calc(100% - ${drawerWidth}px)` }}
       >
         <Toolbar />
+        {/* Display selectedSubOption instead of "Text" */}
         <Typography paragraph>
-            Text
+          {selectedSubOption}
         </Typography>
       </Box>
     </Box>
