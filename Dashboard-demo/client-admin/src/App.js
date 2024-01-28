@@ -1,5 +1,5 @@
-// import TopBar from "./scenes/global/TopBar";
 import SideBar from "./scenes/global/SideBar";
+import './App.css';
 
 function App() {
   return (
@@ -13,3 +13,4 @@ function App() {
 }
 
 export default App;
+
